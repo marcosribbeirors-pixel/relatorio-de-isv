@@ -284,7 +284,7 @@
 
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                 <div class="flex items-center justify-between text-slate-500 mb-1">
-                    <span class="text-xs font-medium">Média ISV (Dias s/ Venda)</span>
+                    <span class="text-xs font-medium" id="kpiAvgLabel">Média ISV (Dias s/ Venda)</span>
                     <i class="fa-solid fa-calendar-xmark text-rose-500 text-sm"></i>
                 </div>
                 <div class="text-2xl font-bold text-slate-800" id="kpiAvgISV">0</div>
@@ -296,24 +296,30 @@
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
             <div class="p-4 bg-slate-50/50 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                    <div class="relative w-full sm:w-72">
+                    <div class="relative w-full sm:w-64">
                         <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-sm"></i>
                         <input type="text" id="tableSearch" oninput="applyFiltersAndRender()" placeholder="Buscar por código ou descrição..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
                     </div>
 
+                    <!-- Botão Toggle de Ruptura Operacional -->
+                    <button id="btnToggleRuptura" onclick="toggleRupturaMode()" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-triangle-exclamation text-slate-400" id="iconRuptura"></i>
+                        <span id="lblRuptura">Ruptura Operacional</span>
+                    </button>
+
                     <!-- Campo do Filtro de ISV Mínimo -->
-                    <div class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-sm">
-                        <label for="isvMinFilter" class="text-xs font-semibold text-slate-700 whitespace-nowrap flex items-center gap-1">
+                    <div id="containerIsvMin" class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-sm transition">
+                        <label for="isvMinFilter" id="lblIsvMin" class="text-xs font-semibold text-slate-700 whitespace-nowrap flex items-center gap-1">
                             <i class="fa-solid fa-filter text-rose-500"></i> ISV Mínimo:
                         </label>
-                        <input type="number" id="isvMinFilter" oninput="applyFiltersAndRender()" min="0" placeholder="Ex: 30" class="w-20 text-xs bg-transparent focus:outline-none font-mono font-bold text-rose-600 placeholder:font-normal placeholder:text-slate-400">
+                        <input type="number" id="isvMinFilter" oninput="applyFiltersAndRender()" min="0" placeholder="Ex: 30" class="w-16 text-xs bg-transparent focus:outline-none font-mono font-bold text-rose-600 placeholder:font-normal placeholder:text-slate-400">
                         <span class="text-[11px] text-slate-400 font-medium">dias</span>
                     </div>
                 </div>
 
                 <div class="text-xs text-slate-500 flex items-center gap-2 shrink-0">
-                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>Ordenado por: <strong class="text-slate-700">isv (Maior → Menor)</strong></span>
+                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500" id="sortDot"></span>
+                    <span id="sortInfoText">Ordenado por: <strong class="text-slate-700" id="sortFieldLabel">isv (Maior → Menor)</strong></span>
                 </div>
             </div>
 
@@ -323,22 +329,23 @@
                         <tr>
                             <th class="py-3 px-3">Código</th>
                             <th class="py-3 px-3">Dígito</th>
-                            <th class="py-3 px-3 min-w-[200px]">Descrição</th>
+                            <th class="py-3 px-3 min-w-[180px]">Descrição</th>
                             <th class="py-3 px-3">Emb</th>
                             <th class="py-3 px-3 text-center">Lastro</th>
                             <th class="py-3 px-3 text-center">Dt Ult Ent</th>
+                            <th class="py-3 px-3 text-center">Dt Ult Vnd</th>
                             <th class="py-3 px-3 text-right">Qtd Ult Ent</th>
                             <th class="py-3 px-3 text-right bg-amber-100/80 text-amber-900 border-x border-amber-200">Ped. Pendente</th>
                             <th class="py-3 px-3 text-right">Estoque Cx</th>
                             <th class="py-3 px-3 text-right">Estoque Und</th>
                             <th class="py-3 px-3 text-right">Vnd 30dias Cx</th>
                             <th class="py-3 px-3 text-right">Bloq Cx</th>
-                            <th class="py-3 px-3 text-right bg-rose-100 text-rose-900 font-bold border-l border-rose-200">ISV</th>
+                            <th class="py-3 px-3 text-right bg-rose-100 text-rose-900 font-bold border-l border-rose-200" id="thMetricHeader">ISV</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody" class="divide-y divide-slate-200/60 text-slate-700">
                         <tr>
-                            <td colspan="13" class="py-12 text-center text-slate-400">
+                            <td colspan="14" class="py-12 text-center text-slate-400">
                                 <div class="flex flex-col items-center justify-center gap-2">
                                     <i class="fa-regular fa-folder-open text-3xl text-slate-300"></i>
                                     <p class="text-sm font-medium">Nenhum arquivo carregado ainda.</p>
@@ -482,62 +489,88 @@
         let currentIndustria = "Coca-Cola";                      
         let rawDataset = [];                                     
         let processedDataset = [];                               
+        let isRupturaActive = false; // Estado do botão Ruptura Operacional
 
-        window.addEventListener('DOMContentLoaded', async () => {
-            initSupabaseFromStorageOrDefault();
-            await fetchIndustriasFromSupabaseOrLocal();
-        });
-
-        // -----------------------------------------------------------------------------
-        // 2. SUPABASE CONNECTION & SYNC LOGIC
-        // -----------------------------------------------------------------------------
-        function getActiveSupabaseCredentials() {
-            const storedUrl = localStorage.getItem('sp_url');
-            const storedKey = localStorage.getItem('sp_key');
-
-            const cleanUrl = storedUrl ? storedUrl.replace(/\/rest\/v1\/?$/, '').trim() : DEFAULT_SUPABASE_URL;
-            const cleanKey = storedKey ? storedKey.trim() : DEFAULT_SUPABASE_KEY;
-
-            return { url: cleanUrl, key: cleanKey };
-        }
-
-        function initSupabaseFromStorageOrDefault() {
-            const { url, key } = getActiveSupabaseCredentials();
-
-            if (url && key && window.supabase) {
-                try {
-                    supabaseClient = window.supabase.createClient(url, key);
-                    updateSupabaseStatus(true, "Conectando...");
-                } catch (err) {
-                    console.error("Erro ao inicializar Supabase:", err);
-                    updateSupabaseStatus(false, "Erro Conexão");
-                }
-            } else {
-                updateSupabaseStatus(false, "Modo Local");
-            }
-        }
-
-        function updateSupabaseStatus(connected, customMsg = null) {
+        function updateSupabaseStatus(connected, text) {
             isSupabaseConnected = connected;
             const dot = document.getElementById('supabaseDot');
             const txt = document.getElementById('supabaseStatusTxt');
-            const badge = document.getElementById('supabaseStatusBadge');
-
-            if (connected) {
-                dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse";
-                txt.textContent = customMsg || "Supabase Nuvem";
-                badge.className = "text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1";
-            } else {
-                dot.className = "w-1.5 h-1.5 rounded-full bg-amber-500";
-                txt.textContent = customMsg || "Modo Local Fallback";
-                badge.className = "text-[10px] font-normal px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800 flex items-center gap-1";
+            if (dot && txt) {
+                txt.textContent = text;
+                dot.className = connected 
+                    ? "w-1.5 h-1.5 rounded-full bg-emerald-400" 
+                    : "w-1.5 h-1.5 rounded-full bg-rose-500";
             }
         }
 
+        function initSupabaseFromStorageOrDefault() {
+            const storedUrl = localStorage.getItem('sp_url') || DEFAULT_SUPABASE_URL;
+            const storedKey = localStorage.getItem('sp_key') || DEFAULT_SUPABASE_KEY;
+
+            const elUrl = document.getElementById('spUrl');
+            const elKey = document.getElementById('spKey');
+            if (elUrl) elUrl.value = storedUrl;
+            if (elKey) elKey.value = storedKey;
+
+            try {
+                if (window.supabase && typeof window.supabase.createClient === 'function') {
+                    supabaseClient = window.supabase.createClient(storedUrl, storedKey);
+                    updateSupabaseStatus(true, "Conectado");
+                } else {
+                    updateSupabaseStatus(false, "Biblioteca Ausente");
+                }
+            } catch (err) {
+                console.error("Erro ao inicializar cliente Supabase:", err);
+                updateSupabaseStatus(false, "Erro Conexão");
+            }
+        }
+
+        async function fetchIndustriasFromSupabaseOrLocal() {
+            let loadedFromSupabase = false;
+
+            if (supabaseClient) {
+                try {
+                    const { data, error } = await supabaseClient.from('industrias').select('*');
+                    if (!error && data && data.length > 0) {
+                        const cloudIndustrias = {};
+                        data.forEach(item => {
+                            cloudIndustrias[item.nome] = {
+                                cnpjs: Array.isArray(item.cnpjs) ? item.cnpjs : (item.cnpjs ? item.cnpjs.split(',').map(s => s.trim()) : []),
+                                keywords: Array.isArray(item.keywords) ? item.keywords : (item.keywords ? item.keywords.split(',').map(s => s.trim()) : [])
+                            };
+                        });
+                        industrias = cloudIndustrias;
+                        localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
+                        loadedFromSupabase = true;
+                        updateSupabaseStatus(true, "Sincronizado");
+                    }
+                } catch (err) {
+                    console.warn("Falha ao buscar indústrias no Supabase, usando cache local/padrão:", err);
+                }
+            }
+
+            if (!loadedFromSupabase) {
+                const cached = localStorage.getItem('local_industrias_cache');
+                if (cached) {
+                    try {
+                        industrias = JSON.parse(cached);
+                    } catch (e) {
+                        industrias = JSON.parse(JSON.stringify(LOCAL_FALLBACK_INDUSTRIAS));
+                    }
+                }
+            }
+
+            const keys = Object.keys(industrias);
+            if (keys.length > 0) {
+                currentIndustria = keys[0];
+                selectedIndustriasForPrint = new Set([currentIndustria]);
+            }
+
+            renderIndustriesHeader();
+            applyFiltersAndRender();
+        }
+
         function openModalSupabase() {
-            const { url, key } = getActiveSupabaseCredentials();
-            document.getElementById('spUrl').value = url;
-            document.getElementById('spKey').value = key;
             document.getElementById('modalSupabase').classList.remove('hidden');
         }
 
@@ -545,84 +578,249 @@
             document.getElementById('modalSupabase').classList.add('hidden');
         }
 
-        async function saveSupabaseConfig(event) {
-            event.preventDefault();
-            let url = document.getElementById('spUrl').value.trim();
+        function saveSupabaseConfig(e) {
+            e.preventDefault();
+            const url = document.getElementById('spUrl').value.trim();
             const key = document.getElementById('spKey').value.trim();
 
-            if (!url || !key) return;
+            localStorage.setItem('sp_url', url);
+            localStorage.setItem('sp_key', key);
 
-            // Remove trailing /rest/v1 if user pastes API endpoint
-            url = url.replace(/\/rest\/v1\/?$/, '');
-
-            try {
-                const tempClient = window.supabase.createClient(url, key);
-                // Test Query
-                const { data, error } = await tempClient.from('industrias').select('id').limit(1);
-                if (error) throw error;
-
-                localStorage.setItem('sp_url', url);
-                localStorage.setItem('sp_key', key);
-                supabaseClient = tempClient;
-
-                updateSupabaseStatus(true, "Supabase Nuvem");
-                closeModalSupabase();
-
-                await fetchIndustriasFromSupabaseOrLocal();
-                alert("Conexão com o Supabase estabelecida com sucesso!");
-            } catch (err) {
-                console.error("Falha ao conectar no Supabase:", err);
-                alert("Erro ao conectar ao Supabase: " + (err.message || "Verifique as credenciais e a execução do script SQL para criar a tabela 'industrias'."));
-            }
+            initSupabaseFromStorageOrDefault();
+            fetchIndustriasFromSupabaseOrLocal();
+            closeModalSupabase();
         }
 
         function resetDefaultSupabaseCredentials() {
+            document.getElementById('spUrl').value = DEFAULT_SUPABASE_URL;
+            document.getElementById('spKey').value = DEFAULT_SUPABASE_KEY;
             localStorage.removeItem('sp_url');
             localStorage.removeItem('sp_key');
             initSupabaseFromStorageOrDefault();
-            closeModalSupabase();
-            fetchIndustriasFromSupabaseOrLocal();
         }
 
-        async function fetchIndustriasFromSupabaseOrLocal() {
-            let loadedFromDb = false;
+        function openModalIndustria(name = null) {
+            const modal = document.getElementById('modalIndustria');
+            const title = document.getElementById('modalTitle');
+            const btnDelete = document.getElementById('btnDeleteInd');
 
-            if (supabaseClient) {
-                try {
-                    const { data, error } = await supabaseClient.from('industrias').select('*');
-                    if (error) throw error;
-
-                    if (data && data.length > 0) {
-                        industrias = {};
-                        data.forEach(item => {
-                            industrias[item.nome] = {
-                                cnpjs: item.cnpjs || [],
-                                keywords: item.keywords || []
-                            };
-                        });
-                        loadedFromDb = true;
-                        updateSupabaseStatus(true, "Supabase Nuvem");
-                    }
-                } catch (err) {
-                    console.warn("Nao foi possivel carregar industrias do Supabase. Usando contingencia local:", err);
-                    updateSupabaseStatus(false, "Modo Local Fallback");
-                }
+            if (name && industrias[name]) {
+                title.innerHTML = `<i class="fa-solid fa-industry text-brand-500"></i> Editar Indústria`;
+                document.getElementById('indOriginalName').value = name;
+                document.getElementById('indNome').value = name;
+                document.getElementById('indCnpjs').value = (industrias[name].cnpjs || []).join(', ');
+                document.getElementById('indKeywords').value = (industrias[name].keywords || []).join(', ');
+                btnDelete.classList.remove('hidden');
+            } else {
+                title.innerHTML = `<i class="fa-solid fa-industry text-brand-500"></i> Cadastrar Indústria`;
+                document.getElementById('indOriginalName').value = '';
+                document.getElementById('indNome').value = '';
+                document.getElementById('indCnpjs').value = '';
+                document.getElementById('indKeywords').value = '';
+                btnDelete.classList.add('hidden');
             }
 
-            if (!loadedFromDb) {
-                // Se nao carregou do DB, garante fallback local
-                if (Object.keys(industrias).length === 0) {
-                    industrias = JSON.parse(JSON.stringify(LOCAL_FALLBACK_INDUSTRIAS));
-                }
+            modal.classList.remove('hidden');
+        }
+
+        function closeModalIndustria() {
+            document.getElementById('modalIndustria').classList.add('hidden');
+        }
+
+        async function saveIndustria(e) {
+            e.preventDefault();
+            const oldName = document.getElementById('indOriginalName').value.trim();
+            const nome = document.getElementById('indNome').value.trim();
+            const cnpjsRaw = document.getElementById('indCnpjs').value;
+            const keywordsRaw = document.getElementById('indKeywords').value;
+
+            if (!nome) return;
+
+            const cnpjs = cnpjsRaw.split(',').map(s => s.trim()).filter(Boolean);
+            const keywords = keywordsRaw.split(',').map(s => s.trim()).filter(Boolean);
+
+            if (oldName && oldName !== nome) {
+                delete industrias[oldName];
+                selectedIndustriasForPrint.delete(oldName);
             }
 
-            const keys = Object.keys(industrias);
-            if (keys.length > 0 && !industrias[currentIndustria]) {
-                currentIndustria = keys[0];
-            }
-            selectedIndustriasForPrint = new Set(keys);
+            industrias[nome] = { cnpjs, keywords };
+            selectedIndustriasForPrint.add(nome);
+            currentIndustria = nome;
 
+            localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
+
+            await syncSaveIndustriaToSupabase(nome, cnpjs, keywords, oldName);
+
+            closeModalIndustria();
             renderIndustriesHeader();
+            applyFiltersAndRender();
+        }
+
+        async function deleteCurrentIndustria() {
+            const oldName = document.getElementById('indOriginalName').value.trim();
+            if (!oldName || !industrias[oldName]) return;
+
+            delete industrias[oldName];
+            selectedIndustriasForPrint.delete(oldName);
+
+            localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
+
+            await syncDeleteIndustriaFromSupabase(oldName);
+
+            const remaining = Object.keys(industrias);
+            currentIndustria = remaining.length > 0 ? remaining[0] : '';
+
+            closeModalIndustria();
+            renderIndustriesHeader();
+            applyFiltersAndRender();
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            initSupabaseFromStorageOrDefault();
+            await fetchIndustriasFromSupabaseOrLocal();
+        });
+
+        // -----------------------------------------------------------------------------
+        // HELPER PARA CONVERSÃO E COMPARAÇÃO DE DATAS (CORRIGIDO)
+        // -----------------------------------------------------------------------------
+        function parseDate(val) {
+            if (!val || val === '-' || val === '0') return null;
+            
+            // Se já for uma instância de Date
+            if (val instanceof Date) {
+                return isNaN(val.getTime()) ? null : new Date(val.getFullYear(), val.getMonth(), val.getDate());
+            }
+
+            // Verifica se é um número de série de data do Excel (número ou string numérica)
+            let numVal = null;
+            if (typeof val === 'number') {
+                numVal = val;
+            } else if (typeof val === 'string') {
+                const trimmed = val.trim();
+                if (/^\d{4,6}(\.\d+)?$/.test(trimmed)) {
+                    numVal = parseFloat(trimmed);
+                }
+            }
+
+            if (numVal !== null && !isNaN(numVal) && numVal > 10000 && numVal < 100000) {
+                // Converte número de série do Excel em data zerando fuso horário
+                const utcDays = numVal - 25569;
+                const utcDate = new Date(Math.round(utcDays * 86400 * 1000));
+                if (!isNaN(utcDate.getTime())) {
+                    return new Date(utcDate.getUTCFullYear(), utcDate.getUTCMonth(), utcDate.getUTCDate());
+                }
+            }
+
+            const str = String(val).trim();
+            if (!str) return null;
+
+            // Formato com 3 partes separadas por / - ou . (Ex: DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD)
+            const parts = str.split(/[\/\-\.]/);
+            if (parts.length === 3) {
+                let p1 = parseInt(parts[0], 10);
+                let p2 = parseInt(parts[1], 10);
+                let p3 = parseInt(parts[2], 10);
+
+                if (isNaN(p1) || isNaN(p2) || isNaN(p3)) return null;
+
+                let year, month, day;
+
+                // Caso YYYY-MM-DD ou YYYY-DD-MM
+                if (p1 > 1000) {
+                    year = p1;
+                    if (p2 > 12 && p3 <= 12) {
+                        day = p2;
+                        month = p3 - 1;
+                    } else {
+                        month = p2 - 1;
+                        day = p3;
+                    }
+                } else {
+                    // Caso DD/MM/YYYY ou MM/DD/YYYY
+                    year = p3 < 100 ? p3 + 2000 : p3;
+
+                    // Se a segunda parte é > 12, com certeza é MM/DD/YYYY (Ex: 05/25/2024 -> Mês 05, Dia 25)
+                    if (p2 > 12 && p1 <= 12) {
+                        month = p1 - 1;
+                        day = p2;
+                    } 
+                    // Se a primeira parte é > 12, com certeza é DD/MM/YYYY (Ex: 25/05/2024 -> Dia 25, Mês 05)
+                    else if (p1 > 12 && p2 <= 12) {
+                        day = p1;
+                        month = p2 - 1;
+                    } 
+                    // Caso ambas sejam <= 12, prevalece o padrão brasileiro DD/MM/YYYY
+                    else {
+                        day = p1;
+                        month = p2 - 1;
+                    }
+                }
+
+                // Valida os valores de mês (0..11) e dia (1..31)
+                if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+                    const d = new Date(year, month, day);
+                    if (!isNaN(d.getTime())) return d;
+                }
+            }
+
+            return null;
+        }
+
+        function formatDateDisplay(val) {
+            if (!val || val === '-' || val === '0') return '-';
+
+            const parsedDate = parseDate(val);
+            if (!parsedDate) return String(val).trim() || '-';
+
+            const day = String(parsedDate.getDate()).padStart(2, '0');
+            const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+            const year = parsedDate.getFullYear();
+
+            if (year < 1990 || year > 2099) return String(val).trim() || '-';
+
+            return `${day}/${month}/${year}`;
+        }
+
+        function toggleRupturaMode() {
+            isRupturaActive = !isRupturaActive;
+
+            const btn = document.getElementById('btnToggleRuptura');
+            const icon = document.getElementById('iconRuptura');
+            const lblIsvMin = document.getElementById('lblIsvMin');
+            const isvMinInput = document.getElementById('isvMinFilter');
+            const containerIsvMin = document.getElementById('containerIsvMin');
+            const thHeader = document.getElementById('thMetricHeader');
+            const sortFieldLabel = document.getElementById('sortFieldLabel');
+
+            if (isRupturaActive) {
+                // Estilo Botão Ativo
+                btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-600 bg-rose-600 text-white hover:bg-rose-700 transition flex items-center gap-1.5 shadow-sm";
+                icon.className = "fa-solid fa-triangle-exclamation text-white animate-pulse";
+                
+                // Desativa Filtro ISV Mínimo
+                isvMinInput.disabled = true;
+                containerIsvMin.className = "flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 shadow-sm opacity-50 cursor-not-allowed";
+                isvMinInput.className = "w-16 text-xs bg-transparent focus:outline-none font-mono font-bold text-slate-400 cursor-not-allowed";
+
+                // Atualiza Título da Coluna e Ordenação
+                thHeader.textContent = "RUPTURA (Dias)";
+                sortFieldLabel.textContent = "ruptura (Maior → Menor)";
+            } else {
+                // Estilo Botão Inativo
+                btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5 shadow-sm";
+                icon.className = "fa-solid fa-triangle-exclamation text-slate-400";
+
+                // Reativa Filtro ISV Mínimo
+                isvMinInput.disabled = false;
+                containerIsvMin.className = "flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-sm transition";
+                isvMinInput.className = "w-16 text-xs bg-transparent focus:outline-none font-mono font-bold text-rose-600 placeholder:font-normal placeholder:text-slate-400";
+
+                // Restaura Título da Coluna e Ordenação
+                thHeader.textContent = "ISV";
+                sortFieldLabel.textContent = "isv (Maior → Menor)";
+            }
+
             applyFiltersAndRender();
         }
 
@@ -782,11 +980,11 @@
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy' });
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
                     
-                    const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                    const json = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false, dateNF: 'dd/mm/yyyy' });
                     processRawJson(json, file.name);
                 } catch (err) {
                     console.error("Erro ao ler arquivo:", err);
@@ -828,7 +1026,8 @@
                 const descricao = getVal('DESCRICAO', 'DESCRIÇÃO') || '';
                 const emb = getVal('EMBALAGEM', 'EMB') || '';
                 const lastro = getVal('LASTRO') || '';
-                const dtUltEnt = getVal('DT ULT ENT', 'DT_ULT_ENT') || '';
+                const dtUltEnt = formatDateDisplay(getVal('DT ULT ENT', 'DT_ULT_ENT'));
+                const dtUltVnd = formatDateDisplay(getVal('DT ULT VND', 'DT_ULT_VND', 'DT ULT VENDA', 'DT_ULT_VENDA'));
                 const qtdUltEnt = parseNum(getVal('QTD ULT ENT', 'QTD_ULT_ENT'));
 
                 const pedCompra = parseNum(getVal('QTD PED COMPRA', 'QTD_PED_COMPRA'));
@@ -850,6 +1049,7 @@
                     'emb': emb,
                     'LASTRO': lastro,
                     'DT ULT ENT': dtUltEnt,
+                    'DT ULT VND': dtUltVnd,
                     'QTD ULT ENT': qtdUltEnt,
                     'ped. pendente': pedPendente,
                     'estoque cx': estoqueCx,
@@ -897,13 +1097,11 @@
             const cleanCnpjs = indConfig.cnpjs.map(c => c.replace(/\D/g, '')).filter(c => c.length > 0);
             const keywords = indConfig.keywords.map(k => k.toLowerCase().trim()).filter(k => k.length > 0);
 
-            let filtered = rawDataset.filter(item => {
-                // Filtro por ISV Mínimo em dias
-                const itemIsv = parseFloat(item['isv']) || 0;
-                if (minIsvVal > 0 && itemIsv < minIsvVal) {
-                    return false;
-                }
+            const today = new Date();
+            const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 
+            let filtered = rawDataset.filter(item => {
+                // Filtro de Indústria por CNPJ ou Palavra-chave
                 const fornecedorStr = String(item['FORNECEDOR'] || '').replace(/\D/g, '');
                 
                 let matchCNPJ = false;
@@ -919,7 +1117,41 @@
                     matchKeyword = keywords.some(kw => desc.includes(kw));
                 }
 
-                return matchCNPJ || matchKeyword;
+                if (!matchCNPJ && !matchKeyword) return false;
+
+                // Análise de Ruptura Operacional x ISV Normal
+                if (isRupturaActive) {
+                    const entDate = parseDate(item['DT ULT ENT']);
+                    if (!entDate) return false;
+
+                    const vndDate = parseDate(item['DT ULT VND']);
+
+                    // Regra Ruptura: Data da última venda < Data da última entrada (ou sem venda após entrada)
+                    let isRuptura = false;
+                    if (vndDate) {
+                        const entTime = new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
+                        const vndTime = new Date(vndDate.getFullYear(), vndDate.getMonth(), vndDate.getDate()).getTime();
+                        isRuptura = vndTime < entTime;
+                    } else {
+                        isRuptura = true; // Nunca vendeu após a entrada
+                    }
+
+                    if (!isRuptura) return false;
+
+                    // Cálculo da Ruptura = Data de hoje - Data da última entrada (em dias)
+                    const entZero = new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
+                    const diffMs = todayZero - entZero;
+                    item['ruptura'] = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+
+                    return true;
+                } else {
+                    // Modo Normal: Filtro por ISV Mínimo em dias (se preenchido)
+                    const itemIsv = parseFloat(item['isv']) || 0;
+                    if (minIsvVal > 0 && itemIsv < minIsvVal) {
+                        return false;
+                    }
+                    return true;
+                }
             });
 
             if (searchQuery) {
@@ -929,7 +1161,12 @@
                 );
             }
 
-            filtered.sort((a, b) => (b['isv'] || 0) - (a['isv'] || 0));
+            // Ordenação
+            if (isRupturaActive) {
+                filtered.sort((a, b) => (b['ruptura'] || 0) - (a['ruptura'] || 0));
+            } else {
+                filtered.sort((a, b) => (b['isv'] || 0) - (a['isv'] || 0));
+            }
 
             processedDataset = filtered;
 
@@ -944,14 +1181,15 @@
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
 
-            document.getElementById('txtTableCount').textContent = `Exibindo ${data.length} registros para ${currentIndustria}`;
+            const modeLabel = isRupturaActive ? " [MODO RUPTURA OPERACIONAL]" : "";
+            document.getElementById('txtTableCount').textContent = `Exibindo ${data.length} registros para ${currentIndustria}${modeLabel}`;
 
             if (data.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="13" class="py-12 text-center text-slate-400">
+                        <td colspan="14" class="py-12 text-center text-slate-400">
                             <i class="fa-solid fa-filter-circle-xmark text-2xl mb-1 text-slate-300"></i>
-                            <p class="text-xs font-semibold">Nenhum produto encontrado para a indústria ${currentIndustria}.</p>
+                            <p class="text-xs font-semibold">Nenhum produto encontrado com os parâmetros atuais (${currentIndustria}).</p>
                         </td>
                     </tr>
                 `;
@@ -964,20 +1202,23 @@
                 const tr = document.createElement('tr');
                 tr.className = "transition border-b border-slate-200/60";
 
+                const metricVal = isRupturaActive ? (item['ruptura'] || 0) : (item['isv'] || 0);
+
                 tr.innerHTML = `
                     <td class="py-2 px-3 font-mono text-slate-900 font-medium">${item['código']}</td>
                     <td class="py-2 px-3">${item['DIGITO']}</td>
                     <td class="py-2 px-3 font-medium text-slate-800">${item['DESCRICAO']}</td>
                     <td class="py-2 px-3">${item['emb']}</td>
                     <td class="py-2 px-3 text-center">${item['LASTRO']}</td>
-                    <td class="py-2 px-3 text-center">${item['DT ULT ENT']}</td>
+                    <td class="py-2 px-3 text-center font-medium">${formatDateDisplay(item['DT ULT ENT'])}</td>
+                    <td class="py-2 px-3 text-center font-medium text-slate-500">${formatDateDisplay(item['DT ULT VND'])}</td>
                     <td class="py-2 px-3 text-right">${fmtNum(item['QTD ULT ENT'])}</td>
                     <td class="py-2 px-3 text-right font-bold bg-amber-50 text-amber-900 border-x border-amber-200/50">${fmtNum(item['ped. pendente'])}</td>
                     <td class="py-2 px-3 text-right">${fmtNum(item['estoque cx'])}</td>
                     <td class="py-2 px-3 text-right">${fmtNum(item['estoque und'])}</td>
                     <td class="py-2 px-3 text-right">${fmtNum(item['vnd 30dias cx'])}</td>
                     <td class="py-2 px-3 text-right">${fmtNum(item['bloq cx'])}</td>
-                    <td class="py-2 px-3 text-right font-bold text-rose-700 bg-rose-50 border-l border-rose-200/60">${fmtNum(item['isv'])}</td>
+                    <td class="py-2 px-3 text-right font-bold text-rose-700 bg-rose-50 border-l border-rose-200/60">${fmtNum(metricVal)}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -987,97 +1228,34 @@
             const totalSKUs = data.length;
             let sumEstoqueCx = 0;
             let sumPedPendente = 0;
-            let sumISV = 0;
+            let sumMetric = 0;
 
             data.forEach(item => {
                 sumEstoqueCx += item['estoque cx'] || 0;
                 sumPedPendente += item['ped. pendente'] || 0;
-                sumISV += item['isv'] || 0;
+                sumMetric += isRupturaActive ? (item['ruptura'] || 0) : (item['isv'] || 0);
             });
 
-            const avgISV = totalSKUs > 0 ? (sumISV / totalSKUs).toFixed(1) : 0;
+            const avgMetric = totalSKUs > 0 ? (sumMetric / totalSKUs).toFixed(1) : 0;
 
             document.getElementById('kpiTotalSKUs').textContent = totalSKUs.toLocaleString('pt-BR');
             document.getElementById('kpiEstoqueCx').textContent = sumEstoqueCx.toLocaleString('pt-BR');
             document.getElementById('kpiPedPendente').textContent = sumPedPendente.toLocaleString('pt-BR');
-            document.getElementById('kpiAvgISV').textContent = avgISV;
+
+            // Atualiza KPI 4 dinamicamente com seletores diretos e seguros
+            const kpiAvgCard = document.getElementById('kpiAvgISV');
+            const kpiAvgLabel = document.getElementById('kpiAvgLabel');
+            
+            if (kpiAvgLabel) {
+                kpiAvgLabel.textContent = isRupturaActive ? "Média Ruptura (Dias)" : "Média ISV (Dias s/ Venda)";
+            }
+            if (kpiAvgCard) {
+                kpiAvgCard.textContent = avgMetric;
+            }
         }
 
         // -----------------------------------------------------------------------------
-        // 6. INDUSTRY MANAGEMENT MODAL
-        // -----------------------------------------------------------------------------
-        function openModalIndustria(name = null) {
-            const modal = document.getElementById('modalIndustria');
-            const title = document.getElementById('modalTitle');
-            const btnDelete = document.getElementById('btnDeleteInd');
-            const origInput = document.getElementById('indOriginalName');
-
-            if (name && industrias[name]) {
-                title.innerHTML = `<i class="fa-solid fa-pen-to-square text-brand-500"></i> Editar Indústria: ${name}`;
-                origInput.value = name;
-                document.getElementById('indNome').value = name;
-                document.getElementById('indCnpjs').value = industrias[name].cnpjs.join(', ');
-                document.getElementById('indKeywords').value = industrias[name].keywords.join(', ');
-                btnDelete.classList.remove('hidden');
-            } else {
-                title.innerHTML = `<i class="fa-solid fa-plus text-brand-500"></i> Cadastrar Indústria`;
-                origInput.value = '';
-                document.getElementById('formIndustria').reset();
-                btnDelete.classList.add('hidden');
-            }
-
-            modal.classList.remove('hidden');
-        }
-
-        function closeModalIndustria() {
-            document.getElementById('modalIndustria').classList.add('hidden');
-        }
-
-        async function saveIndustria(event) {
-            event.preventDefault();
-            const origName = document.getElementById('indOriginalName').value;
-            const nome = document.getElementById('indNome').value.trim();
-            const cnpjsRaw = document.getElementById('indCnpjs').value;
-            const keywordsRaw = document.getElementById('indKeywords').value;
-
-            if (!nome) return;
-
-            const cnpjs = cnpjsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
-            const keywords = keywordsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
-
-            if (origName && origName !== nome) {
-                delete industrias[origName];
-                selectedIndustriasForPrint.delete(origName);
-            }
-
-            industrias[nome] = { cnpjs, keywords };
-            selectedIndustriasForPrint.add(nome);
-            currentIndustria = nome;
-
-            closeModalIndustria();
-            renderIndustriesHeader();
-            applyFiltersAndRender();
-
-            // Cloud Sync com o Supabase
-            await syncSaveIndustriaToSupabase(nome, cnpjs, keywords, origName);
-        }
-
-        async function deleteCurrentIndustria() {
-            const origName = document.getElementById('indOriginalName').value;
-            if (origName && industrias[origName]) {
-                delete industrias[origName];
-                selectedIndustriasForPrint.delete(origName);
-                const keys = Object.keys(industrias);
-                currentIndustria = keys.length > 0 ? keys[0] : '';
-                closeModalIndustria();
-                renderIndustriesHeader();
-                applyFiltersAndRender();
-
-                // Cloud Sync deleção no Supabase
-                await syncDeleteIndustriaFromSupabase(origName);
-            }
-        }
-
+        // 7. PRINTING ENGINE (MULTI-SELECTION & EXACT PAGE PAGINATION)
         // -----------------------------------------------------------------------------
         // 7. PRINTING ENGINE (MULTI-SELECTION & EXACT PAGE PAGINATION)
         // -----------------------------------------------------------------------------
@@ -1098,6 +1276,9 @@
             const selectedList = Array.from(selectedIndustriasForPrint);
             const minIsvVal = parseFloat(document.getElementById('isvMinFilter').value) || 0;
 
+            const today = new Date();
+            const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
             selectedList.forEach((indName) => {
                 const indConfig = industrias[indName];
                 if (!indConfig) return;
@@ -1106,12 +1287,6 @@
                 const keywords = indConfig.keywords.map(k => k.toLowerCase().trim()).filter(k => k.length > 0);
 
                 let filtered = rawDataset.filter(item => {
-                    // Filtro de ISV minimo para impressao
-                    const itemIsv = parseFloat(item['isv']) || 0;
-                    if (minIsvVal > 0 && itemIsv < minIsvVal) {
-                        return false;
-                    }
-
                     const fornecedorStr = String(item['FORNECEDOR'] || '').replace(/\D/g, '');
                     let matchCNPJ = false;
                     if (cleanCnpjs.length > 0 && fornecedorStr.length > 0) {
@@ -1123,10 +1298,42 @@
                         const desc = String(item['DESCRICAO'] || '').toLowerCase();
                         matchKeyword = keywords.some(kw => desc.includes(kw));
                     }
-                    return matchCNPJ || matchKeyword;
+                    if (!matchCNPJ && !matchKeyword) return false;
+
+                    if (isRupturaActive) {
+                        const entDate = parseDate(item['DT ULT ENT']);
+                        if (!entDate) return false;
+
+                        const vndDate = parseDate(item['DT ULT VND']);
+                        let isRuptura = false;
+                        if (vndDate) {
+                            const entTime = new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
+                            const vndTime = new Date(vndDate.getFullYear(), vndDate.getMonth(), vndDate.getDate()).getTime();
+                            isRuptura = vndTime < entTime;
+                        } else {
+                            isRuptura = true;
+                        }
+
+                        if (!isRuptura) return false;
+
+                        const entZero = new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
+                        const diffMs = todayZero - entZero;
+                        item['ruptura'] = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+                        return true;
+                    } else {
+                        const itemIsv = parseFloat(item['isv']) || 0;
+                        if (minIsvVal > 0 && itemIsv < minIsvVal) {
+                            return false;
+                        }
+                        return true;
+                    }
                 });
 
-                filtered.sort((a, b) => (b['isv'] || 0) - (a['isv'] || 0));
+                if (isRupturaActive) {
+                    filtered.sort((a, b) => (b['ruptura'] || 0) - (a['ruptura'] || 0));
+                } else {
+                    filtered.sort((a, b) => (b['isv'] || 0) - (a['isv'] || 0));
+                }
 
                 fullHtml += generatePrintHTMLForIndustry(indName, filtered);
             });
@@ -1147,6 +1354,8 @@
             const dateStr = new Date().toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
             const fmtNum = num => num.toLocaleString('pt-BR');
             const ROWS_PER_PAGE = 22;
+            const colTitle = isRupturaActive ? "RUPTURA" : "ISV";
+            const titlePrefix = isRupturaActive ? "RUPTURA OPERACIONAL - " : "";
 
             if (!data || data.length === 0) {
                 return `
@@ -1154,23 +1363,23 @@
                         <table class="print-table">
                             <thead>
                                 <tr class="print-header-row">
-                                    <th colspan="13" class="print-header-cell">
+                                    <th colspan="14" class="print-header-cell">
                                         <div class="print-header-content">
-                                            <div class="print-title">INDÚSTRIA ${name.toUpperCase()} - FOLHA 1</div>
+                                            <div class="print-title">${titlePrefix}INDÚSTRIA ${name.toUpperCase()} - FOLHA 1</div>
                                             <div class="print-meta-info">Emitido em: ${dateStr} | Total SKUs: 0</div>
                                         </div>
                                     </th>
                                 </tr>
                                 <tr class="print-columns-row">
                                     <th>Código</th><th>Dígito</th><th>Descrição</th><th>Emb</th><th>Lastro</th>
-                                    <th>Dt Ult Ent</th><th style="text-align:right">Qtd Ult Ent</th>
+                                    <th>Dt Ult Ent</th><th>Dt Ult Vnd</th><th style="text-align:right">Qtd Ult Ent</th>
                                     <th style="text-align:right">Ped. Pendente</th><th style="text-align:right">Estoque Cx</th>
                                     <th style="text-align:right">Estoque Und</th><th style="text-align:right">Vnd 30dias Cx</th>
-                                    <th style="text-align:right">Bloq Cx</th><th style="text-align:right">ISV</th>
+                                    <th style="text-align:right">Bloq Cx</th><th style="text-align:right">${colTitle}</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr><td colspan="13" style="text-align:center; padding: 12px; font-style: italic;">Nenhum produto encontrado para a indústria ${name}.</td></tr>
+                                <tr><td colspan="14" style="text-align:center; padding: 12px; font-style: italic;">Nenhum produto encontrado para a indústria ${name}.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1187,6 +1396,7 @@
 
                 let rowsHtml = '';
                 pageData.forEach(item => {
+                    const metricVal = isRupturaActive ? (item['ruptura'] || 0) : (item['isv'] || 0);
                     rowsHtml += `
                         <tr>
                             <td style="font-family: monospace;">${item['código']}</td>
@@ -1194,14 +1404,15 @@
                             <td style="font-weight: 500;">${item['DESCRICAO']}</td>
                             <td>${item['emb']}</td>
                             <td style="text-align:center">${item['LASTRO']}</td>
-                            <td style="text-align:center">${item['DT ULT ENT']}</td>
+                            <td style="text-align:center">${formatDateDisplay(item['DT ULT ENT'])}</td>
+                            <td style="text-align:center">${formatDateDisplay(item['DT ULT VND'])}</td>
                             <td style="text-align:right">${fmtNum(item['QTD ULT ENT'])}</td>
                             <td style="text-align:right;" class="print-highlight-amber">${fmtNum(item['ped. pendente'])}</td>
                             <td style="text-align:right">${fmtNum(item['estoque cx'])}</td>
                             <td style="text-align:right">${fmtNum(item['estoque und'])}</td>
                             <td style="text-align:right">${fmtNum(item['vnd 30dias cx'])}</td>
                             <td style="text-align:right">${fmtNum(item['bloq cx'])}</td>
-                            <td style="text-align:right;" class="print-highlight-rose">${fmtNum(item['isv'])}</td>
+                            <td style="text-align:right;" class="print-highlight-rose">${fmtNum(metricVal)}</td>
                         </tr>
                     `;
                 });
@@ -1211,9 +1422,9 @@
                         <table class="print-table">
                             <thead>
                                 <tr class="print-header-row">
-                                    <th colspan="13" class="print-header-cell">
+                                    <th colspan="14" class="print-header-cell">
                                         <div class="print-header-content">
-                                            <div class="print-title">INDÚSTRIA ${name.toUpperCase()} - FOLHA ${pageNum}</div>
+                                            <div class="print-title">${titlePrefix}INDÚSTRIA ${name.toUpperCase()} - FOLHA ${pageNum}</div>
                                             <div class="print-meta-info">Emitido em: ${dateStr} | Total SKUs: ${data.length}</div>
                                         </div>
                                     </th>
@@ -1225,13 +1436,14 @@
                                     <th>Emb</th>
                                     <th>Lastro</th>
                                     <th>Dt Ult Ent</th>
+                                    <th>Dt Ult Vnd</th>
                                     <th style="text-align:right">Qtd Ult Ent</th>
                                     <th style="text-align:right">Ped. Pendente</th>
                                     <th style="text-align:right">Estoque Cx</th>
                                     <th style="text-align:right">Estoque Und</th>
                                     <th style="text-align:right">Vnd 30dias Cx</th>
                                     <th style="text-align:right">Bloq Cx</th>
-                                    <th style="text-align:right">ISV</th>
+                                    <th style="text-align:right">${colTitle}</th>
                                 </tr>
                             </thead>
                             <tbody>
