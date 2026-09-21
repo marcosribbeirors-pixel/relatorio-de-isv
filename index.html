@@ -527,6 +527,7 @@
                                 <th class="p-3">Embalagem</th>
                                 <th class="p-3">Data Entrada</th>
                                 <th class="p-3">Data Vencimento</th>
+                                <th class="p-3 text-right">EST<br>ATUAL</th>
                                 <th class="p-3 text-right">Saldo EMB1 (CX)</th>
                                 <th class="p-3 text-right">Vnd 30d (CX)</th>
                                 <th class="p-3 text-center">Dias Sem Venda</th>
@@ -535,7 +536,7 @@
                         </thead>
                         <tbody id="tableBodySae60" class="divide-y divide-slate-200">
                             <tr>
-                                <td colspan="11" class="p-8 text-center text-slate-400">
+                                <td colspan="12" class="p-8 text-center text-slate-400">
                                     Nenhum relatório sae60 carregado. Faça upload acima para visualizar os vencimentos FIFO.
                                 </td>
                             </tr>
@@ -1078,9 +1079,9 @@
             if (currentTab === 'sae60' && globalResultadoProcessadoSae.length > 0) {
                 let activeSaeItems = [];
                 if (abaAtualSae === 'este_mes') {
-                    activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
+                    activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
                 } else if (abaAtualSae === 'mes_vem') {
-                    activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehMesVem && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
+                    activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
                 } else if (abaAtualSae === 'erros') {
                     activeSaeItems = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
                 }
@@ -1738,8 +1739,27 @@
             let resultados = [];
             let totalErrosData = 0;
 
+            const getEstLiqEmb1 = (row) => {
+                if (!row) return 0;
+                for (let k of ['EST. LÍQ. EMB1', 'EST. LIQ. EMB1', 'EST_LIQ_EMB1', 'EST LÍQ EMB1', 'EST LIQ EMB1']) {
+                    if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
+                        return parseFloat(String(row[k]).replace(',', '.')) || 0;
+                    }
+                }
+                for (let key in row) {
+                    const normKey = normalizeStr(key);
+                    if (normKey.includes('EST') && normKey.includes('LIQ') && normKey.includes('EMB1')) {
+                        return parseFloat(String(row[key]).replace(',', '.')) || 0;
+                    }
+                }
+                return 0;
+            };
+
             Object.keys(gruposSKUGlobalSae).forEach(sku => {
                 let entradas = gruposSKUGlobalSae[sku];
+
+                // Obtém o valor de EST. LÍQ. EMB1 da última linha do SKU (de cima para baixo na ordem original do arquivo)
+                const estAtualVal = getEstLiqEmb1(entradas[entradas.length - 1]);
 
                 entradas.forEach(e => {
                     e._dtEntrada = parseDate(e['DATA ENTRADA']);
@@ -1850,6 +1870,7 @@
                             embalagem: e['EMBALAGEM'] || '',
                             dataEntrada: formatDateDisplay(e._dtEntrada),
                             dataVencimento: formatDateDisplay(e._dtVenc),
+                            estAtual: estAtualVal,
                             valorVencimento: e._valorVencimento,
                             tempoVida: e._tempoVida,
                             qtdeEntradaEmb1: e._qEmb1,
@@ -1876,8 +1897,8 @@
             resultados.sort((a, b) => b.valorVencimento - a.valorVencimento);
             globalResultadoProcessadoSae = resultados;
 
-            const listEsteMes = resultados.filter(r => r.ehEsteMes && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
-            const listMesVem = resultados.filter(r => r.ehMesVem && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
+            const listEsteMes = resultados.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
+            const listMesVem = resultados.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
             const listErros = resultados.filter(r => r.erroLancamento === "SIM");
 
             document.getElementById('kpiTotalSKUsSae').innerText = Object.keys(gruposSKUGlobalSae).length;
@@ -1921,11 +1942,11 @@
             if (aba === 'este_mes') {
                 btnEsteMes.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-amber-500 text-white shadow-sm";
                 labelStatus.innerText = "Exibindo: Vencimentos Deste Mês (Clique na linha para expandir)";
-                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
+                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
             } else if (aba === 'mes_vem') {
                 btnMesVem.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-orange-500 text-white shadow-sm";
                 labelStatus.innerText = "Exibindo: Vencimentos do Mês Seguinte (Clique na linha para expandir)";
-                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehMesVem && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
+                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
             } else if (aba === 'erros') {
                 btnErros.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-rose-600 text-white shadow-sm";
                 labelStatus.innerText = "Exibindo: Relatório de Erros de Lançamento (Clique na linha para expandir)";
@@ -1983,7 +2004,7 @@
             tbody.innerHTML = '';
 
             if (!dados || dados.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" class="p-8 text-center text-slate-400">Nenhum registro encontrado para a categoria selecionada.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-slate-400">Nenhum registro encontrado para a categoria selecionada.</td></tr>`;
                 return;
             }
 
@@ -2008,6 +2029,7 @@
                     <td class="p-3 text-slate-600 font-medium">${row.embalagem}</td>
                     <td class="p-3 text-center">${row.dataEntrada}</td>
                     <td class="p-3 text-center font-bold text-amber-800">${row.dataVencimento}</td>
+                    <td class="p-3 text-right font-semibold text-indigo-700 bg-indigo-50/50">${row.estAtual} CX</td>
                     <td class="p-3 text-right font-semibold text-slate-800">${row.estoqueRestanteEmb1} CX</td>
                     <td class="p-3 text-right font-semibold text-brand-600">${row.vnd30Emb1} CX</td>
                     <td class="p-3 text-center text-slate-600">${row.diasSemVenda} d</td>
@@ -2021,7 +2043,7 @@
                 detailTr.className = "hidden detail-row-sae bg-slate-100/80";
 
                 let historicoHTML = `
-                    <td colspan="11" class="px-3 py-2">
+                    <td colspan="12" class="px-3 py-2">
                         <div class="bg-slate-50 border border-slate-300 rounded p-2">
                             <div class="text-[10px] font-bold text-slate-600 uppercase mb-1 no-print-text">
                                 Histórico de Entradas Originais (${historico.length})
@@ -2078,10 +2100,10 @@
             let nameFile = "relatorio_vencimentos.csv";
 
             if (tipo === 'este_mes') {
-                dadosFiltrados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
+                dadosFiltrados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
                 nameFile = "vencimentos_deste_mes.csv";
             } else if (tipo === 'mes_vem') {
-                dadosFiltrados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
+                dadosFiltrados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
                 nameFile = "vencimentos_mes_seguinte.csv";
             } else if (tipo === 'erros') {
                 dadosFiltrados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
@@ -2102,6 +2124,7 @@
                 "EMBALAGEM": r.embalagem,
                 "DATA ENTRADA": r.dataEntrada,
                 "DATA VENCIMENTO": r.dataVencimento,
+                "ESTOQUE ATUAL (EST. LÍQ. EMB1)": r.estAtual,
                 "VALOR VENCIMENTO": r.valorVencimento,
                 "TEMPO DE VIDA (DIAS)": r.tempoVida,
                 "QTDE ENTRADA EMB1 (CX)": r.qtdeEntradaEmb1,
@@ -2139,10 +2162,10 @@
 
             if (abaAtualSae === 'este_mes') {
                 tabTitle = "VENCIMENTOS DESTE MÊS";
-                activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
+                activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
             } else if (abaAtualSae === 'mes_vem') {
                 tabTitle = "VENCIMENTOS DO MÊS SEGUINTE";
-                activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehMesVem && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
+                activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
             } else if (abaAtualSae === 'erros') {
                 tabTitle = "RELATÓRIO DE ERROS DE LANÇAMENTO";
                 activeSaeItems = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
@@ -2189,6 +2212,7 @@
                                 <td>${item.embalagem}</td>
                                 <td style="text-align:center">${item.dataEntrada}</td>
                                 <td style="text-align:center; font-weight:bold;" class="print-highlight-amber">${item.dataVencimento}</td>
+                                <td style="text-align:right; font-weight:bold;">${item.estAtual} CX</td>
                                 <td style="text-align:right; font-weight:bold;">${item.estoqueRestanteEmb1} CX</td>
                                 <td style="text-align:right">${item.vnd30Emb1} CX</td>
                                 <td style="text-align:center">${item.diasSemVenda} d</td>
@@ -2202,7 +2226,7 @@
                             <table class="print-table">
                                 <thead>
                                     <tr class="print-header-row">
-                                        <th colspan="10" class="print-header-cell">
+                                        <th colspan="11" class="print-header-cell">
                                             <div class="print-header-content">
                                                 <div class="print-title">INDÚSTRIA ${indName.toUpperCase()} - ${tabTitle} - FOLHA ${pageNum} DE ${totalPages}</div>
                                                 <div class="print-meta-info">Emitido em: ${dateStr} | Total SKUs: ${indData.length}</div>
@@ -2216,6 +2240,7 @@
                                         <th>Embalagem</th>
                                         <th>Data Entrada</th>
                                         <th>Data Vencimento</th>
+                                        <th style="text-align:right">EST ATUAL</th>
                                         <th style="text-align:right">Saldo EMB1</th>
                                         <th style="text-align:right">Vnd 30d</th>
                                         <th style="text-align:center">Dias s/ Vnd</th>
@@ -2248,10 +2273,10 @@
 
             if (abaAtualSae === 'este_mes') {
                 tabTitle = "VENCIMENTOS DESTE MÊS";
-                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
+                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
             } else if (abaAtualSae === 'mes_vem') {
                 tabTitle = "VENCIMENTOS DO MÊS SEGUINTE";
-                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehMesVem && (r.estoqueRestanteEmb1 > 0 || r.estoqueRestanteEmb9 > 0));
+                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
             } else if (abaAtualSae === 'erros') {
                 tabTitle = "RELATÓRIO DE ERROS DE LANÇAMENTO";
                 dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
@@ -2287,6 +2312,7 @@
                             <td>${item.embalagem}</td>
                             <td style="text-align:center">${item.dataEntrada}</td>
                             <td style="text-align:center; font-weight:bold;" class="print-highlight-amber">${item.dataVencimento}</td>
+                            <td style="text-align:right; font-weight:bold;">${item.estAtual} CX</td>
                             <td style="text-align:right; font-weight:bold;">${item.estoqueRestanteEmb1} CX</td>
                             <td style="text-align:right">${item.vnd30Emb1} CX</td>
                             <td style="text-align:center">${item.diasSemVenda} d</td>
@@ -2311,7 +2337,7 @@
                         });
                         rowsHtml += `
                             <tr>
-                                <td colspan="10" style="background-color: #f8fafc; padding: 4px 8px;">
+                                <td colspan="11" style="background-color: #f8fafc; padding: 4px 8px;">
                                     <div style="font-size: 7pt; font-weight: bold; margin-bottom: 2px;">Histórico Lotes (${historico.length}):</div>
                                     <table style="width:100%; font-size: 6.5pt; border-collapse: collapse;"><tbody>${histHtml}</tbody></table>
                                 </td>
@@ -2325,7 +2351,7 @@
                         <table class="print-table">
                             <thead>
                                 <tr class="print-header-row">
-                                    <th colspan="10" class="print-header-cell">
+                                    <th colspan="11" class="print-header-cell">
                                         <div class="print-header-content">
                                             <div class="print-title">VENCIMENTOS FIFO (SAE60) - ${tabTitle} - FOLHA ${pageNum}</div>
                                             <div class="print-meta-info">Emitido em: ${dateStr} | Total Registros: ${dadosParaExibir.length}</div>
@@ -2339,6 +2365,7 @@
                                     <th>Embalagem</th>
                                     <th>Data Entrada</th>
                                     <th>Data Vencimento</th>
+                                    <th style="text-align:right">EST ATUAL</th>
                                     <th style="text-align:right">Saldo EMB1</th>
                                     <th style="text-align:right">Vnd 30d</th>
                                     <th style="text-align:center">Dias s/ Vnd</th>
