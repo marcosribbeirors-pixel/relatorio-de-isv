@@ -220,6 +220,11 @@
                     <span class="hidden md:inline">Supabase</span>
                 </button>
 
+                <button onclick="openModalIndustriaLote()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition" title="Cadastrar Indústrias em Lote do Excel">
+                    <i class="fa-solid fa-file-import text-amber-400"></i>
+                    <span class="hidden md:inline">Em Lote</span>
+                </button>
+
                 <button onclick="openModalIndustria()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition" title="Cadastrar Indústria">
                     <i class="fa-solid fa-plus text-brand-500"></i>
                     <span class="hidden md:inline">Indústria</span>
@@ -667,6 +672,47 @@
         </div>
     </div>
 
+    <!-- Modal: Bulk Industry Registration from Excel -->
+    <div id="modalIndustriaLote" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full overflow-hidden border border-slate-200 transform transition-all">
+            <div class="bg-slate-900 px-6 py-4 flex items-center justify-between text-white">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-file-import text-amber-400"></i> Cadastrar Indústrias em Lote (Excel)
+                </h3>
+                <button onclick="closeModalIndustriaLote()" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form onsubmit="saveIndustriasLote(event)" class="p-6 space-y-4">
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 space-y-1">
+                    <p class="font-semibold flex items-center gap-1.5 text-amber-800">
+                        <i class="fa-solid fa-paste"></i> Instruções para Copiar do Excel
+                    </p>
+                    <p class="text-[11px] text-amber-800 leading-relaxed">
+                        Copie as 3 colunas diretamente da sua planilha na ordem: <strong>CNPJ | Nome da Indústria | Tag (opcional)</strong> e cole no campo abaixo.
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Cole aqui a seleção de 3 colunas do Excel *</label>
+                    <textarea id="loteDataInput" rows="8" required placeholder="0074569000100&#09;Coca-Cola&#09;Bebidas&#10;50221019000136&#09;Heineken&#09;Cervejas" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-mono whitespace-pre overflow-x-auto"></textarea>
+                    <p class="text-[10px] text-slate-500 mt-1">
+                        Cada linha colada criará ou atualizará uma indústria automaticamente.
+                    </p>
+                </div>
+
+                <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+                    <span id="lotePreviewCount" class="text-xs text-slate-500 font-medium">0 linhas identificadas</span>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="closeModalIndustriaLote()" class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">Cancelar</button>
+                        <button type="submit" class="px-4 py-1.5 text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white rounded-lg shadow-sm transition">Importar e Salvar Indústrias</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Print Area -->
     <div id="printArea" class="print-only"></div>
 
@@ -966,6 +1012,120 @@
             renderIndustriesHeader();
             applyFiltersAndRender();
             if (globalSaeFilteredData.length > 0) processarAbaSae60(globalSaeFilteredData, false);
+        }
+
+        function openModalIndustriaLote() {
+            const textarea = document.getElementById('loteDataInput');
+            if (textarea) textarea.value = '';
+            const preview = document.getElementById('lotePreviewCount');
+            if (preview) preview.textContent = '0 linhas identificadas';
+            document.getElementById('modalIndustriaLote').classList.remove('hidden');
+        }
+
+        function closeModalIndustriaLote() {
+            document.getElementById('modalIndustriaLote').classList.add('hidden');
+        }
+
+        // Preview count update on paste or type
+        document.addEventListener('DOMContentLoaded', () => {
+            const loteInput = document.getElementById('loteDataInput');
+            if (loteInput) {
+                loteInput.addEventListener('input', function() {
+                    const text = this.value.trim();
+                    if (!text) {
+                        document.getElementById('lotePreviewCount').textContent = '0 linhas identificadas';
+                        return;
+                    }
+                    const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+                    document.getElementById('lotePreviewCount').textContent = `${lines.length} linha(s) identificada(s)`;
+                });
+            }
+        });
+
+        async function saveIndustriasLote(e) {
+            e.preventDefault();
+            const rawText = document.getElementById('loteDataInput').value.trim();
+            if (!rawText) return;
+
+            const lines = rawText.split(/\r?\n/);
+            let addedCount = 0;
+            const batchUpsertList = [];
+
+            lines.forEach(line => {
+                if (!line.trim()) return;
+
+                // Split by TAB (\t), fallback to semicolon if pasted differently
+                let cols = line.split('\t');
+                if (cols.length < 2 && line.includes(';')) {
+                    cols = line.split(';');
+                }
+
+                if (cols.length < 2) return;
+
+                let cnpjCol = (cols[0] || '').trim();
+                let nomeCol = (cols[1] || '').trim();
+                let tagCol = (cols[2] || '').trim();
+
+                // Skip header row if copied (e.g., "CNPJ", "NOME", "TAG")
+                const normCol1 = normalizeStr(cnpjCol);
+                const normCol2 = normalizeStr(nomeCol);
+                if (normCol1.includes('CNPJ') || normCol2.includes('NOME') || normCol2.includes('INDUSTRIA')) {
+                    return;
+                }
+
+                if (!nomeCol) return;
+
+                // Extract clean CNPJs (comma or slash separated)
+                const parsedCnpjs = cnpjCol ? cnpjCol.split(/[,;\/]/).map(c => c.replace(/\D/g, '')).filter(Boolean) : [];
+
+                if (!industrias[nomeCol]) {
+                    industrias[nomeCol] = {
+                        cnpjs: parsedCnpjs,
+                        keywords: [],
+                        tag: tagCol
+                    };
+                } else {
+                    // Merge new CNPJs into existing industry record
+                    const existingCnpjs = new Set(industrias[nomeCol].cnpjs || []);
+                    parsedCnpjs.forEach(c => existingCnpjs.add(c));
+                    industrias[nomeCol].cnpjs = Array.from(existingCnpjs);
+                    if (tagCol) industrias[nomeCol].tag = tagCol;
+                }
+
+                selectedIndustriasForPrint.add(nomeCol);
+                addedCount++;
+
+                batchUpsertList.push({
+                    nome: nomeCol,
+                    cnpjs: industrias[nomeCol].cnpjs,
+                    keywords: industrias[nomeCol].keywords || [],
+                    tag: industrias[nomeCol].tag || ''
+                });
+            });
+
+            if (addedCount === 0) {
+                alert("Nenhuma indústria válida foi identificada. Copie as colunas na ordem: CNPJ, Nome e Tag do Excel.");
+                return;
+            }
+
+            localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
+
+            if (supabaseClient && batchUpsertList.length > 0) {
+                try {
+                    await supabaseClient.from('industrias').upsert(batchUpsertList, { onConflict: 'nome' });
+                    updateSupabaseStatus(true, "Supabase Nuvem");
+                } catch (err) {
+                    console.error("Erro ao salvar lote no Supabase:", err);
+                }
+            }
+
+            closeModalIndustriaLote();
+            currentIndustria = 'TODAS';
+            renderIndustriesHeader();
+            applyFiltersAndRender();
+            if (globalSaeFilteredData.length > 0) processarAbaSae60(globalSaeFilteredData, false);
+
+            alert(`${addedCount} indústria(s) importada(s) e atualizada(s) com sucesso!`);
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
