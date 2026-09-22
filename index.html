@@ -252,12 +252,19 @@
                         <input type="text" id="indSearch" oninput="renderIndustriesHeader()" placeholder="Buscar por nome ou tag..." class="w-full pl-7 pr-3 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-500">
                     </div>
                     
+                    <!-- Checkbox Vencendo -->
+                    <label class="flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer select-none whitespace-nowrap bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-lg hover:bg-amber-100 transition shadow-sm">
+                        <input type="checkbox" id="chkOnlyVencendo" onchange="renderIndustriesHeader()" class="w-3.5 h-3.5 text-amber-600 rounded border-amber-300 focus:ring-amber-500 cursor-pointer">
+                        <i class="fa-solid fa-clock text-amber-600 text-[11px]"></i>
+                        <span>Vencendo</span>
+                    </label>
+
                     <button onclick="toggleSelectAllIndustrias()" id="btnToggleSelectAll" class="text-xs font-medium text-brand-600 hover:text-brand-800 flex items-center gap-1.5 transition whitespace-nowrap">
                         <i class="fa-regular fa-square-check"></i> <span>Selecionar Todas</span>
                     </button>
 
-                    <!-- Botão de Impressão de Indústrias com Vencimento -->
-                    <button id="btnPrintComVencimento" onclick="imprimirIndustriasComVencimento()" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs transition flex items-center gap-1.5 shadow-sm whitespace-nowrap hidden" title="Imprimir relatórios por indústria com vencimentos programados nesta aba">
+                    <!-- Botão de Impressão de Indústrias Selecionadas com Vencimento -->
+                    <button id="btnPrintComVencimento" onclick="imprimirIndustriasComVencimento()" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-950 font-bold rounded-lg text-xs transition flex items-center gap-1.5 shadow-sm whitespace-nowrap hidden" title="Imprimir relatórios das indústrias SELECIONADAS que possuem vencimentos programados nesta aba">
                         <i class="fa-solid fa-print"></i> <span id="lblPrintComVencimento">Imprimir Indústrias c/ Vencimento</span>
                     </button>
                 </div>
@@ -383,6 +390,12 @@
                     </div>
 
                     <div class="flex items-center gap-2">
+                        <button onclick="exportarExcelSmg12()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm" title="Baixar dados filtrados em formato Excel (.xlsx)">
+                            <i class="fa-solid fa-file-excel"></i> <span>Baixar Excel</span>
+                        </button>
+                        <button onclick="exportarCSVSmg12()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm" title="Baixar dados filtrados em CSV">
+                            <i class="fa-solid fa-file-csv"></i> <span>Baixar CSV</span>
+                        </button>
                         <button onclick="imprimirSelecionadas()" id="btnPrintSelection" disabled class="disabled:opacity-50 disabled:cursor-not-allowed bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm">
                             <i class="fa-solid fa-print"></i> <span id="lblPrintBtn">Imprimir Selecionadas</span>
                         </button>
@@ -485,6 +498,9 @@
                     </button>
                     <button onclick="imprimirTabelaSae()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-print"></i> Imprimir Tabela
+                    </button>
+                    <button onclick="exportarExcelSae()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition" title="Exportar aba ativa para Excel (.xlsx)">
+                        <i class="fa-solid fa-file-excel"></i> Excel (Aba Ativa)
                     </button>
                     <button onclick="exportarCSVSae('este_mes')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-file-csv"></i> CSV: Este Mês
@@ -717,16 +733,26 @@
     <div id="printArea" class="print-only"></div>
 
     <script>
-        lucide.createIcons();
-
-        // Default Credentials
         const DEFAULT_SUPABASE_URL = "https://amxspytizglslbuqqmet.supabase.co";
         const DEFAULT_SUPABASE_KEY = "sb_publishable_j46GfemQVaD2GkV-XIqhSQ_ebi0Ip7s";
 
         let supabaseClient = null;
         let isSupabaseConnected = false;
+        let smg12SkuMap = new Map();
 
-        // Default Fallback Industries
+        let currentTab = 'smg12';
+        let abaAtualSae = 'este_mes';
+        let currentIndustria = 'TODAS';
+        let selectedIndustriasForPrint = new Set();
+        let rawDatasetSmg12 = [];
+        let processedDatasetSmg12 = [];
+        let globalSaeRawData = [];
+        let globalSaeFilteredData = [];
+        let globalResultadoProcessadoSae = [];
+        let gruposSKUGlobalSae = {};
+        let isRupturaActive = false;
+        let todosExpandidosSae = false;
+
         const LOCAL_FALLBACK_INDUSTRIAS = {
             "Coca-Cola": {
                 cnpjs: ["0074569000100", "45913696000185", "61186888000193", "01612795000151"],
@@ -740,398 +766,299 @@
             }
         };
 
-        // Application State
         let industrias = JSON.parse(JSON.stringify(LOCAL_FALLBACK_INDUSTRIAS));
-        let selectedIndustriasForPrint = new Set(["Coca-Cola"]);
-        let currentIndustria = "TODAS";                      
-        let currentTab = 'smg12';
-
-        // SMG12 Datasets
-        let rawDatasetSmg12 = [];                                     
-        let processedDatasetSmg12 = [];                               
-        let isRupturaActive = false;
-        let smg12SkuMap = new Map(); // codigo -> { industria, temIndustria, fornecedor }
-
-        // SAE60 Datasets
-        let globalSaeRawData = [];
-        let globalSaeFilteredData = [];
-        let globalResultadoProcessadoSae = [];
-        let gruposSKUGlobalSae = {};
-        let abaAtualSae = 'este_mes';
-        let todosExpandidosSae = false;
 
         const setoresLiquidaIgnorar = [
-            "001 - CAFETERIA", "099 - DOCES EM CALDA E MASSA", "126 - UTILIDADE DE ALUMINIO", 
-            "113 - ABSORVENTES/PROTETOR DIARIO", "078 - CONDIMENTOS/ TEMPEROS E CALDOS", 
-            "033 - AUTOMOTIVO E FERRAGENS", "047 - CAMPING", "095 - ACHOCOLATADOS/CEREAIS", 
-            "098 - P.A.R. LEITE EM PO E MODIFICADORES", "093 - CAFES", "090 - G.U/SUCOS/SOBREMESAS", 
-            "070 - ACUCAR/CESTA BASICA", "092 - G.U/MOLHOS E ENLATADOS", "094 - ADOCANTES E CHAS", 
-            "123 - PRODUTOS PARA PELE E MAOS", "115 - SHAMPOO E CONDICIONADOR", "117 - TOUCADOR", 
-            "124 - P.A.R DESODORANTES", "045 - AGUA SANITARIA E ALCOOL", "076 - SAL/VINAGRES", 
-            "091 - G.U/TEMPEROS E CONDIMENTOS", "087 - AZEITONAS/ CARNE ENLATADAS E CONSERVAS", 
-            "085 - MACARRAO", "100 - DOCES POPULARES", "089 - LEITE LONGA VIDA/BEBIDAS LACTEAS", 
-            "032 - RACAO E ACESSORIOS", "044 - AMACIANTES, ALVEJANTES E TIRA MANCHAS", 
-            "112 - BATATAS CHIPS/PALHA/AMENDOIM E PIPOCAS", "111 - SALGADINHOS", "079 - FARINACEOS E GRAOS", 
-            "097 - FARINHAS LACTEAS/ALIM INFANTIL", "120 - ANTISEPTICOS E ESCOVAS", 
-            "135 - P.A.R. APARELHO DE BARBEAR/ CARGAS E ESPUMAS", "038 - INSETICIDAS/DESODORIZANTES", 
-            "048 - ELETRONICO E PAPELARIA", "101 - MISTURA DE BOLO/ COCO RALADO/LEITE COCO/SOBREMESAS", 
-            "068 - ARROZ", "128 - FESTINHA E EMBALAGENS DESCARTAVEIS", "075 - P.A.R. AZEITES", 
-            "105 - BALAS/ CHICLETES E PIRULITOS", "134 - P.A.R. LINHA DTC", "037 - BALDE/ LIXEIRA/ PANO E FLANELA", 
-            "127 - UTILIDADE DE PLASTICO", "107 - CHOCOLATES/BARRA CEREAIS", "096 - CR. LEITE/ LEITE COND", 
-            "116 - PERFUMARIA INFANTIL", "103 - BISCOITOS RECHEADOS/DOCES", 
-            "104 - BISC MAISENA/LEITE/CRACKERS/AGUA E SAL", "102 - BISCOITOS POLVILHO/SALGADOS E TORRADAS", 
-            "000 -", "109 - P.A.R. CHOCOLATES BARRA E TABLETES", "088 - PAES/BOLOS", "034 - BRINQUEDOS", 
-            "040 - CERAS/LUSTRAS MOVEIS", "036 - RODO/ VASSOURA E SACO DE LIXO", "140 - ELETRO ELETRONICOS", 
-            "077 - P.A.R. TEMPERO SAZON", "083 - CATCHUP/ MOSTARDA E MAIONESES", 
-            "122 - TINTURAS/GEL/POMADA DE CABELO", "106 - P.A.R. CHICLETE TRIDENT/ TIC TAC", 
-            "108 - P.A.R. BASES E COBERTURAS", "110 - OVOS DE PASCOA", "133 - P.A.R. CIGARROS/FUMOS", 
-            "051 - CHECK-STAND", "131 - P.A.R. COLOMBA PASCAL/ PANETONE E C. NATAL", 
-            "121 - CREME DE CABELO/ CREME PENTEAR", "129 - COPOS DESCARTAVEIS E GUARDANAPOS", "119 - CREME DENTAL", 
-            "064 - MARGARINAS/ MANTEIGAS E REQUEIJAO", "086 - MACARRAO INSTANTANEO/ SOPAS/ QUEIJO RALADO", 
-            "084 - MOLHOS PRONTOS/ PIMENTAS", "039 - DESINFETANTES", "041 - LIMPADORES", "021 - FRUTAS/OVOS", 
-            "046 - DETERGENTE EM PO/ LAVA ROUPAS E SABAO EM PDC", "042 - DETERGENTE LIQUIDO E ESPONJAS E PALHA DE ACO", 
-            "082 - DERIVADO TOMATE", "081 - FARINHA DE MANDIOCA /MILHO E ROSCA", "071 - FARINHA DE TRIGO 1KG/5KG", 
-            "073 - MIST. DE PAO/FAR. DE TRIGO 25KG E 50KG", "069 - FEIJAO", "072 - PANIFICACAO", "035 - LAMPADAS", 
-            "138 - FATIADOS", "114 - FRALDAS/GERIATRICAS", "022 - LEGUMES E VERDURAS", "049 - TEXTIL", 
-            "118 - SABONETES", "043 - REMOVEDOR E DESENTUPIDOR/SAPONACEO", "058 - MASSAS FRESCA/RECHEADAS", 
-            "080 - MILHO DE PIPOCA/MICROONDAS", "074 - OLEO SOJA/ OLEO ESPECIAIS", 
-            "125 - PAPEL HIGIENICO E PAPEL TOALHA", "136 - P.A.R. PILHAS E BATERIAS", 
-            "026 - POLPAS FRUTAS/ SORVETES", "031 - CARNE DE PEIXE", "028 - VEGETAIS CONGELADOS/BATATAS", 
-            "061 - CARNES RESFR TEMP/RECH", "067 - IOGURTES", "024 - CARNES CONGELADAS", "023 - CARNES SUINAS", 
-            "027 - ALIMENTOS PRONTO", "027 - ALIMENTOS  PRONTO", "057 - PRESUNTO/ APRESUNTADOS", "029 - CARNE DE AVES", 
-            "132 - AVES NATALINAS", "056 - BACALHAU E PERTENCES P/ FEIJOADA", "054 - P.A.R. BACON", 
-            "025 - HAMBURGUERS", "060 - CARNES BOVINA RESFRIADAS", "062 - P.A.R. CARNES NOBRES BOV CONG/RESFR", 
-            "053 - MORTADELAS E SALAMES", "065 - QUEIJOS PRATOS/ DIVERSOS", "030 - P.A.R PEITO/FILE DE PEITO", 
-            "055 - P.A.R. CHARQUE", "052 - LINGUICAS CALABRESAS", "066 - MUSSARELAS", "059 - SALSICHAS RESFRIADAS/CONGELADAS", "050 - SANDALIAS"
-        ];
+            "001 - CAFETERIA",
+            "099 - DOCES EM CALDA E MASSA", "126 - UTILIDADE DE ALUMINIO", "113 - ABSORVENTES/PROTETOR DIARIO",
+            "078 - CONDIMENTOS/ TEMPEROS E CALDOS", "033 - AUTOMOTIVO E FERRAGENS", "047 - CAMPING",
+            "095 - ACHOCOLATADOS/CEREAIS", "098 - P.A.R. LEITE EM PO E MODIFICADORES", "093 - CAFES",
+            "090 - G.U/SUCOS/SOBREMESAS", "070 - ACUCAR/CESTA BASICA", "092 - G.U/MOLHOS E ENLATADOS",
+            "094 - ADOCANTES E CHAS", "123 - PRODUTOS PARA PELE E MAOS", "115 - SHAMPOO E CONDICIONADOR",
+            "117 - TOUCADOR", "124 - P.A.R DESODORANTES", "045 - AGUA SANITARIA E ALCOOL",
+            "076 - SAL/VINAGRES", "091 - G.U/TEMPEROS E CONDIMENTOS", "087 - AZEITONAS/ CARNE ENLATADAS E CONSERVAS",
+            "085 - MACARRAO", "100 - DOCES POPULARES", "089 - LEITE LONGA VIDA/BEBIDAS LACTEAS",
+            "032 - RACAO E ACESSORIOS", "044 - AMACIANTES, ALVEJANTES E TIRA MANCHAS", "112 - BATATAS CHIPS/PALHA/AMENDOIM E PIPOCAS",
+            "111 - SALGADINHOS", "079 - FARINACEOS E GRAOS", "097 - FARINHAS LACTEAS/ALIM INFANTIL",
+            "120 - ANTISEPTICOS E ESCOVAS", "135 - P.A.R. APARELHO DE BARBEAR/ CARGAS E ESPUMAS", "038 - INSETICIDAS/DESODORIZANTES",
+            "048 - ELETRONICO E PAPELARIA", "101 - MISTURA DE BOLO/ COCO RALADO/LEITE COCO/SOBREMESAS", "068 - ARROZ",
+            "128 - FESTINHA E EMBALAGENS DESCARTAVEIS", "075 - P.A.R. AZEITES", "105 - BALAS/ CHICLETES E PIRULITOS",
+            "134 - P.A.R. LINHA DTC", "037 - BALDE/ LIXEIRA/ PANO E FLANELA", "127 - UTILIDADE DE PLASTICO",
+            "107 - CHOCOLATES/BARRA CEREAIS", "096 - CR. LEITE/ LEITE COND", "116 - PERFUMARIA INFANTIL",
+            "103 - BISCOITOS RECHEADOS/DOCES", "104 - BISC MAISENA/LEITE/CRACKERS/AGUA E SAL", "102 - BISCOITOS POLVILHO/SALGADOS E TORRADAS",
+            "000 -", "109 - P.A.R. CHOCOLATES BARRA E TABLETES", "088 - PAES/BOLOS",
+            "034 - BRINQUEDOS", "040 - CERAS/LUSTRAS MOVEIS", "036 - RODO/ VASSOURA E SACO DE LIXO",
+            "140 - ELETRO ELETRONICOS", "077 - P.A.R. TEMPERO SAZON", "083 - CATCHUP/ MOSTARDA E MAIONESES",
+            "122 - TINTURAS/GEL/POMADA DE CABELO", "106 - P.A.R. CHICLETE TRIDENT/ TIC TAC", "108 - P.A.R. BASES E COBERTURAS",
+            "110 - OVOS DE PASCOA", "133 - P.A.R. CIGARROS/FUMOS", "051 - CHECK-STAND",
+            "131 - P.A.R. COLOMBA PASCAL/ PANETONE E C. NATAL", "121 - CREME DE CABELO/ CREME PENTEAR", "129 - COPOS DESCARTAVEIS E GUARDANAPOS",
+            "119 - CREME DENTAL", "064 - MARGARINAS/ MANTEIGAS E REQUEIJAO", "086 - MACARRAO INSTANTANEO/ SOPAS/ QUEIJO RALADO",
+            "084 - MOLHOS PRONTOS/ PIMENTAS", "039 - DESINFETANTES", "041 - LIMPADORES",
+            "021 - FRUTAS/OVOS", "046 - DETERGENTE EM PO/ LAVA ROUPAS E SABAO EM PDC", "042 - DETERGENTE LIQUIDO E ESPONJAS E PALHA DE ACO",
+            "082 - DERIVADO TOMATE", "081 - FARINHA DE MANDIOCA /MILHO E ROSCA", "071 - FARINHA DE TRIGO 1KG/5KG",
+            "073 - MIST. DE PAO/FAR. DE TRIGO 25KG E 50KG", "069 - FEIJAO", "072 - PANIFICACAO",
+            "035 - LAMPADAS", "138 - FATIADOS", "114 - FRALDAS/GERIATRICAS",
+            "022 - LEGUMES E VERDURAS", "049 - TEXTIL", "118 - SABONETES",
+            "043 - REMOVEDOR E DESENTUPIDOR/SAPONACEO", "058 - MASSAS FRESCA/RECHEADAS", "080 - MILHO DE PIPOCA/MICROONDAS",
+            "074 - OLEO SOJA/ OLEO ESPECIAIS", "125 - PAPEL HIGIENICO E PAPEL TOALHA", "136 - P.A.R. PILHAS E BATERIAS",
+            "026 - POLPAS FRUTAS/ SORVETES", "031 - CARNE DE PEIXE", "028 - VEGETAIS CONGELADOS/BATATAS",
+            "061 - CARNES RESFR TEMP/RECH", "067 - IOGURTES", "024 - CARNES CONGELADAS",
+            "023 - CARNES SUINAS", "027 - ALIMENTOS  PRONTO", "057 - PRESUNTO/ APRESUNTADOS",
+            "029 - CARNE DE AVES", "132 - AVES NATALINAS", "056 - BACALHAU E PERTENCES P/ FEIJOADA",
+            "054 - P.A.R. BACON", "025 - HAMBURGUERS", "060 - CARNES BOVINA RESFRIADAS",
+            "062 - P.A.R. CARNES NOBRES BOV CONG/RESFR", "053 - MORTADELAS E SALAMES", "065 - QUEIJOS PRATOS/ DIVERSOS",
+            "030 - P.A.R PEITO/FILE DE PEITO", "055 - P.A.R. CHARQUE", "052 - LINGUICAS CALABRESAS",
+            "066 - MUSSARELAS", "059 - SALSICHAS RESFRIADAS/CONGELADAS", "050 - SANDALIAS"
+        ].map(s => s.trim().toUpperCase());
 
         function normalizeStr(str) {
             if (!str) return '';
             return String(str)
-                .toUpperCase()
-                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
                 .replace(/\s+/g, ' ')
-                .trim();
+                .trim()
+                .toUpperCase();
         }
 
-        // Navigation Tab Switching
         function switchTab(tab) {
             currentTab = tab;
-            const viewSmg = document.getElementById('viewSmg12');
-            const viewSae = document.getElementById('viewSae60');
-            const navBtnSmg = document.getElementById('navBtnSmg12');
-            const navBtnSae = document.getElementById('navBtnSae60');
+            const viewSmg12 = document.getElementById('viewSmg12');
+            const viewSae60 = document.getElementById('viewSae60');
+            const btnSmg12 = document.getElementById('navBtnSmg12');
+            const btnSae60 = document.getElementById('navBtnSae60');
 
             if (tab === 'smg12') {
-                viewSmg.classList.remove('hidden');
-                viewSae.classList.add('hidden');
-                navBtnSmg.className = "px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-brand-600 text-white shadow-sm";
-                navBtnSae.className = "px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700";
+                viewSmg12.classList.remove('hidden');
+                viewSae60.classList.add('hidden');
+                btnSmg12.className = "px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-brand-600 text-white shadow-sm";
+                btnSae60.className = "px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700";
             } else {
-                viewSmg.classList.add('hidden');
-                viewSae.classList.remove('hidden');
-                navBtnSae.className = "px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-amber-600 text-white shadow-sm";
-                navBtnSmg.className = "px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700";
+                viewSmg12.classList.add('hidden');
+                viewSae60.classList.remove('hidden');
+                btnSae60.className = "px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-amber-500 text-slate-950 shadow-sm";
+                btnSmg12.className = "px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700";
             }
             renderIndustriesHeader();
         }
 
-        function updateSupabaseStatus(connected, text) {
-            isSupabaseConnected = connected;
-            const dot = document.getElementById('supabaseDot');
-            const txt = document.getElementById('supabaseStatusTxt');
-            if (dot && txt) {
-                txt.textContent = text;
-                dot.className = connected ? "w-1.5 h-1.5 rounded-full bg-emerald-400" : "w-1.5 h-1.5 rounded-full bg-rose-500";
-            }
-        }
+        function getSaeCountsPerInd() {
+            const saeCountsPerInd = {};
+            if (globalResultadoProcessadoSae && globalResultadoProcessadoSae.length > 0) {
+                Object.keys(industrias).forEach(indName => {
+                    const indConfig = industrias[indName] || { cnpjs: [], keywords: [] };
+                    const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
+                    const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
 
-        function initSupabaseFromStorageOrDefault() {
-            const storedUrl = localStorage.getItem('sp_url') || DEFAULT_SUPABASE_URL;
-            const storedKey = localStorage.getItem('sp_key') || DEFAULT_SUPABASE_KEY;
+                    let countEsteMes = 0;
+                    let countMesVem = 0;
+                    let countErros = 0;
 
-            document.getElementById('spUrl').value = storedUrl;
-            document.getElementById('spKey').value = storedKey;
+                    globalResultadoProcessadoSae.forEach(r => {
+                        let matchesInd = false;
+                        if (r.skuFornecedor) {
+                            const fornecedorStr = String(r.skuFornecedor).replace(/\D/g, '');
+                            if (cleanCnpjs.length > 0 && fornecedorStr.length > 0) {
+                                matchesInd = cleanCnpjs.some(cnpj => fornecedorStr.includes(cnpj) || cnpj.includes(fornecedorStr));
+                            }
+                        }
+                        if (!matchesInd && keywords.length > 0 && r.descricao) {
+                            const desc = String(r.descricao).toLowerCase();
+                            matchesInd = keywords.some(kw => desc.includes(kw));
+                        }
 
-            try {
-                if (window.supabase && typeof window.supabase.createClient === 'function') {
-                    supabaseClient = window.supabase.createClient(storedUrl, storedKey);
-                    updateSupabaseStatus(true, "Conectado");
-                } else {
-                    updateSupabaseStatus(false, "Biblioteca Ausente");
-                }
-            } catch (err) {
-                updateSupabaseStatus(false, "Erro Conexão");
-            }
-        }
+                        if (matchesInd) {
+                            if (r.ehEsteMes && r.estoqueRestanteEmb1 > 0) countEsteMes++;
+                            if (r.ehMesVem && r.estoqueRestanteEmb1 > 0) countMesVem++;
+                            if (r.erroLancamento === "SIM") countErros++;
+                        }
+                    });
 
-        async function fetchIndustriasFromSupabaseOrLocal() {
-            let loadedFromSupabase = false;
-
-            if (supabaseClient) {
-                try {
-                    const { data, error } = await supabaseClient.from('industrias').select('*');
-                    if (!error && data && data.length > 0) {
-                        const cloudIndustrias = {};
-                        data.forEach(item => {
-                            cloudIndustrias[item.nome] = {
-                                cnpjs: Array.isArray(item.cnpjs) ? item.cnpjs : (item.cnpjs ? item.cnpjs.split(',').map(s => s.trim()) : []),
-                                keywords: Array.isArray(item.keywords) ? item.keywords : (item.keywords ? item.keywords.split(',').map(s => s.trim()) : []),
-                                tag: item.tag || ''
-                            };
-                        });
-                        industrias = cloudIndustrias;
-                        localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
-                        loadedFromSupabase = true;
-                        updateSupabaseStatus(true, "Sincronizado");
-                    }
-                } catch (err) {
-                    console.warn("Usando cache local/padrão:", err);
-                }
-            }
-
-            if (!loadedFromSupabase) {
-                const cached = localStorage.getItem('local_industrias_cache');
-                if (cached) {
-                    try { industrias = JSON.parse(cached); } catch (e) { industrias = JSON.parse(JSON.stringify(LOCAL_FALLBACK_INDUSTRIAS)); }
-                }
-            }
-
-            const keys = Object.keys(industrias);
-            currentIndustria = 'TODAS';
-            selectedIndustriasForPrint = new Set(keys);
-
-            renderIndustriesHeader();
-            applyFiltersAndRender();
-            if (globalSaeFilteredData.length > 0) processarAbaSae60(globalSaeFilteredData, false);
-        }
-
-        function openModalSupabase() { document.getElementById('modalSupabase').classList.remove('hidden'); }
-        function closeModalSupabase() { document.getElementById('modalSupabase').classList.add('hidden'); }
-
-        function saveSupabaseConfig(e) {
-            e.preventDefault();
-            const url = document.getElementById('spUrl').value.trim();
-            const key = document.getElementById('spKey').value.trim();
-            localStorage.setItem('sp_url', url);
-            localStorage.setItem('sp_key', key);
-            initSupabaseFromStorageOrDefault();
-            fetchIndustriasFromSupabaseOrLocal();
-            closeModalSupabase();
-        }
-
-        function resetDefaultSupabaseCredentials() {
-            document.getElementById('spUrl').value = DEFAULT_SUPABASE_URL;
-            document.getElementById('spKey').value = DEFAULT_SUPABASE_KEY;
-            localStorage.removeItem('sp_url');
-            localStorage.removeItem('sp_key');
-            initSupabaseFromStorageOrDefault();
-        }
-
-        function openModalIndustria(name = null) {
-            const modal = document.getElementById('modalIndustria');
-            const title = document.getElementById('modalTitle');
-            const btnDelete = document.getElementById('btnDeleteInd');
-
-            if (name && industrias[name]) {
-                title.innerHTML = `<i class="fa-solid fa-industry text-brand-500"></i> Editar Indústria`;
-                document.getElementById('indOriginalName').value = name;
-                document.getElementById('indNome').value = name;
-                document.getElementById('indCnpjs').value = (industrias[name].cnpjs || []).join(', ');
-                document.getElementById('indKeywords').value = (industrias[name].keywords || []).join(', ');
-                document.getElementById('indTag').value = industrias[name].tag || '';
-                btnDelete.classList.remove('hidden');
-            } else {
-                title.innerHTML = `<i class="fa-solid fa-industry text-brand-500"></i> Cadastrar Indústria`;
-                document.getElementById('indOriginalName').value = '';
-                document.getElementById('indNome').value = '';
-                document.getElementById('indCnpjs').value = '';
-                document.getElementById('indKeywords').value = '';
-                document.getElementById('indTag').value = '';
-                btnDelete.classList.add('hidden');
-            }
-
-            modal.classList.remove('hidden');
-        }
-
-        function closeModalIndustria() { document.getElementById('modalIndustria').classList.add('hidden'); }
-
-        async function saveIndustria(e) {
-            e.preventDefault();
-            const oldName = document.getElementById('indOriginalName').value.trim();
-            const nome = document.getElementById('indNome').value.trim();
-            const cnpjsRaw = document.getElementById('indCnpjs').value;
-            const keywordsRaw = document.getElementById('indKeywords').value;
-            const tag = document.getElementById('indTag').value.trim();
-
-            if (!nome) return;
-
-            const cnpjs = cnpjsRaw.split(',').map(s => s.trim()).filter(Boolean);
-            const keywords = keywordsRaw.split(',').map(s => s.trim()).filter(Boolean);
-
-            if (oldName && oldName !== nome) {
-                delete industrias[oldName];
-                selectedIndustriasForPrint.delete(oldName);
-            }
-
-            industrias[nome] = { cnpjs, keywords, tag };
-            selectedIndustriasForPrint.add(nome);
-            currentIndustria = nome;
-
-            localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
-
-            if (supabaseClient) {
-                try {
-                    if (oldName && oldName !== nome) await supabaseClient.from('industrias').delete().eq('nome', oldName);
-                    await supabaseClient.from('industrias').upsert({ nome, cnpjs, keywords, tag }, { onConflict: 'nome' });
-                    updateSupabaseStatus(true, "Supabase Nuvem");
-                } catch (err) { console.error("Erro ao salvar no Supabase:", err); }
-            }
-
-            closeModalIndustria();
-            renderIndustriesHeader();
-            applyFiltersAndRender();
-            if (globalSaeFilteredData.length > 0) processarAbaSae60(globalSaeFilteredData, false);
-        }
-
-        async function deleteCurrentIndustria() {
-            const oldName = document.getElementById('indOriginalName').value.trim();
-            if (!oldName || !industrias[oldName]) return;
-
-            delete industrias[oldName];
-            selectedIndustriasForPrint.delete(oldName);
-            localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
-
-            if (supabaseClient) {
-                try { await supabaseClient.from('industrias').delete().eq('nome', oldName); } catch (err) {}
-            }
-
-            currentIndustria = 'TODAS';
-
-            closeModalIndustria();
-            renderIndustriesHeader();
-            applyFiltersAndRender();
-            if (globalSaeFilteredData.length > 0) processarAbaSae60(globalSaeFilteredData, false);
-        }
-
-        function openModalIndustriaLote() {
-            const textarea = document.getElementById('loteDataInput');
-            if (textarea) textarea.value = '';
-            const preview = document.getElementById('lotePreviewCount');
-            if (preview) preview.textContent = '0 linhas identificadas';
-            document.getElementById('modalIndustriaLote').classList.remove('hidden');
-        }
-
-        function closeModalIndustriaLote() {
-            document.getElementById('modalIndustriaLote').classList.add('hidden');
-        }
-
-        // Preview count update on paste or type
-        document.addEventListener('DOMContentLoaded', () => {
-            const loteInput = document.getElementById('loteDataInput');
-            if (loteInput) {
-                loteInput.addEventListener('input', function() {
-                    const text = this.value.trim();
-                    if (!text) {
-                        document.getElementById('lotePreviewCount').textContent = '0 linhas identificadas';
-                        return;
-                    }
-                    const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
-                    document.getElementById('lotePreviewCount').textContent = `${lines.length} linha(s) identificada(s)`;
+                    saeCountsPerInd[indName] = {
+                        este_mes: countEsteMes,
+                        mes_vem: countMesVem,
+                        erros: countErros
+                    };
                 });
             }
-        });
+            return saeCountsPerInd;
+        }
 
-        async function saveIndustriasLote(e) {
-            e.preventDefault();
-            const rawText = document.getElementById('loteDataInput').value.trim();
-            if (!rawText) return;
+        function renderIndustriesHeader() {
+            const container = document.getElementById('industriesBar');
+            if (!container) return;
+            container.innerHTML = '';
 
-            const lines = rawText.split(/\r?\n/);
-            let addedCount = 0;
-            const batchUpsertList = [];
+            const keys = Object.keys(industrias);
+            document.getElementById('totalIndustriasBadge').textContent = `${keys.length} cadastradas`;
 
-            lines.forEach(line => {
-                if (!line.trim()) return;
+            const searchVal = normalizeStr(document.getElementById('indSearch')?.value || '');
+            const onlyVencendo = document.getElementById('chkOnlyVencendo')?.checked || false;
+            const saeCounts = getSaeCountsPerInd();
 
-                // Split by TAB (\t), fallback to semicolon if pasted differently
-                let cols = line.split('\t');
-                if (cols.length < 2 && line.includes(';')) {
-                    cols = line.split(';');
-                }
+            // All Industries Button
+            const isTodasActive = currentIndustria === 'TODAS';
+            const btnTodas = document.createElement('button');
+            btnTodas.className = `px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-sm ${
+                isTodasActive ? 'bg-brand-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+            }`;
+            btnTodas.innerHTML = `<i class="fa-solid fa-layer-group"></i> <span>Todas as Indústrias</span>`;
+            btnTodas.onclick = () => selectIndustria('TODAS');
+            container.appendChild(btnTodas);
 
-                if (cols.length < 2) return;
+            let selectedWithVencCount = 0;
 
-                let cnpjCol = (cols[0] || '').trim();
-                let nomeCol = (cols[1] || '').trim();
-                let tagCol = (cols[2] || '').trim();
+            keys.forEach(name => {
+                const ind = industrias[name];
+                const tagStr = ind.tag ? normalizeStr(ind.tag) : '';
+                const nameStr = normalizeStr(name);
 
-                // Skip header row if copied (e.g., "CNPJ", "NOME", "TAG")
-                const normCol1 = normalizeStr(cnpjCol);
-                const normCol2 = normalizeStr(nomeCol);
-                if (normCol1.includes('CNPJ') || normCol2.includes('NOME') || normCol2.includes('INDUSTRIA')) {
+                // Filter Search
+                if (searchVal && !nameStr.includes(searchVal) && !tagStr.includes(searchVal)) {
                     return;
                 }
 
-                if (!nomeCol) return;
+                const counts = saeCounts[name] || { este_mes: 0, mes_vem: 0, erros: 0 };
+                const currentSubCount = currentTab === 'sae60' ? (counts[abaAtualSae] || 0) : 0;
+                const hasVenc = currentSubCount > 0;
 
-                // Extract clean CNPJs (comma or slash separated)
-                const parsedCnpjs = cnpjCol ? cnpjCol.split(/[,;\/]/).map(c => c.replace(/\D/g, '')).filter(Boolean) : [];
-
-                if (!industrias[nomeCol]) {
-                    industrias[nomeCol] = {
-                        cnpjs: parsedCnpjs,
-                        keywords: [],
-                        tag: tagCol
-                    };
-                } else {
-                    // Merge new CNPJs into existing industry record
-                    const existingCnpjs = new Set(industrias[nomeCol].cnpjs || []);
-                    parsedCnpjs.forEach(c => existingCnpjs.add(c));
-                    industrias[nomeCol].cnpjs = Array.from(existingCnpjs);
-                    if (tagCol) industrias[nomeCol].tag = tagCol;
+                if (onlyVencendo && !hasVenc) {
+                    return;
                 }
 
-                selectedIndustriasForPrint.add(nomeCol);
-                addedCount++;
+                const isActive = currentIndustria === name;
+                const isCheckedForPrint = selectedIndustriasForPrint.has(name);
 
-                batchUpsertList.push({
-                    nome: nomeCol,
-                    cnpjs: industrias[nomeCol].cnpjs,
-                    keywords: industrias[nomeCol].keywords || [],
-                    tag: industrias[nomeCol].tag || ''
-                });
+                if (hasVenc && isCheckedForPrint) {
+                    selectedWithVencCount++;
+                }
+
+                const btnGroup = document.createElement('div');
+                let bgClass = "bg-white border-slate-200 text-slate-700 hover:bg-slate-50";
+                if (isActive) {
+                    bgClass = "bg-amber-500 border-amber-600 text-slate-950 font-bold ring-2 ring-amber-400";
+                } else if (hasVenc && currentTab === 'sae60') {
+                    bgClass = "bg-amber-100 border-amber-300 text-amber-950 font-semibold hover:bg-amber-200";
+                }
+
+                btnGroup.className = `flex items-center rounded-xl border px-2.5 py-1 transition shadow-sm shrink-0 gap-2 ${bgClass}`;
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = isCheckedForPrint;
+                checkbox.className = "w-3.5 h-3.5 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer";
+                checkbox.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleIndustryForPrint(name);
+                };
+
+                const btnSelect = document.createElement('button');
+                btnSelect.className = "text-xs flex items-center gap-1.5 focus:outline-none";
+                
+                let badgeHtml = '';
+                if (ind.tag) {
+                    badgeHtml += `<span class="bg-slate-200/80 text-slate-700 text-[9px] px-1.5 py-0.2 rounded font-mono">${ind.tag}</span>`;
+                }
+                if (hasVenc && currentTab === 'sae60') {
+                    badgeHtml += `<span class="bg-amber-500 text-slate-950 text-[10px] px-1.5 py-0.2 rounded-full font-bold">${currentSubCount}</span>`;
+                }
+
+                btnSelect.innerHTML = `<i class="fa-solid fa-industry ${isActive ? 'text-slate-950' : 'text-slate-500'}"></i> <span>${name}</span> ${badgeHtml}`;
+                btnSelect.onclick = () => selectIndustria(name);
+
+                const btnEdit = document.createElement('button');
+                btnEdit.className = "ml-1 text-slate-400 hover:text-slate-700 text-[10px] rounded hover:bg-slate-200/60 p-1 transition";
+                btnEdit.title = "Editar Parâmetros";
+                btnEdit.innerHTML = `<i class="fa-solid fa-pen"></i>`;
+                btnEdit.onclick = (e) => {
+                    e.stopPropagation();
+                    openModalIndustria(name);
+                };
+
+                btnGroup.appendChild(checkbox);
+                btnGroup.appendChild(btnSelect);
+                btnGroup.appendChild(btnEdit);
+                container.appendChild(btnGroup);
             });
 
-            if (addedCount === 0) {
-                alert("Nenhuma indústria válida foi identificada. Copie as colunas na ordem: CNPJ, Nome e Tag do Excel.");
-                return;
-            }
+            // Update Print Button on Top Bar
+            const btnPrintComVenc = document.getElementById('btnPrintComVencimento');
+            const lblPrintComVenc = document.getElementById('lblPrintComVencimento');
+            if (btnPrintComVenc && lblPrintComVenc) {
+                if (currentTab === 'sae60') {
+                    btnPrintComVenc.classList.remove('hidden');
+                    let tabName = "Deste Mês";
+                    if (abaAtualSae === 'mes_vem') tabName = "Mês Que Vem";
+                    if (abaAtualSae === 'erros') tabName = "Erros";
+                    
+                    lblPrintComVenc.textContent = `Imprimir ${selectedWithVencCount} Indústria(s) c/ Vencimento (${tabName})`;
 
-            localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
-
-            if (supabaseClient && batchUpsertList.length > 0) {
-                try {
-                    await supabaseClient.from('industrias').upsert(batchUpsertList, { onConflict: 'nome' });
-                    updateSupabaseStatus(true, "Supabase Nuvem");
-                } catch (err) {
-                    console.error("Erro ao salvar lote no Supabase:", err);
+                    if (selectedWithVencCount === 0) {
+                        btnPrintComVenc.classList.add('opacity-50', 'cursor-not-allowed');
+                        btnPrintComVenc.disabled = true;
+                    } else {
+                        btnPrintComVenc.classList.remove('opacity-50', 'cursor-not-allowed');
+                        btnPrintComVenc.disabled = false;
+                    }
+                } else {
+                    btnPrintComVenc.classList.add('hidden');
                 }
             }
-
-            closeModalIndustriaLote();
-            currentIndustria = 'TODAS';
-            renderIndustriesHeader();
-            applyFiltersAndRender();
-            if (globalSaeFilteredData.length > 0) processarAbaSae60(globalSaeFilteredData, false);
-
-            alert(`${addedCount} indústria(s) importada(s) e atualizada(s) com sucesso!`);
         }
 
-        window.addEventListener('DOMContentLoaded', async () => {
-            initSupabaseFromStorageOrDefault();
-            await fetchIndustriasFromSupabaseOrLocal();
-        });
+        function toggleIndustryForPrint(name) {
+            if (selectedIndustriasForPrint.has(name)) {
+                selectedIndustriasForPrint.delete(name);
+            } else {
+                selectedIndustriasForPrint.add(name);
+            }
+            renderIndustriesHeader();
+            if (currentTab === 'smg12') {
+                updateMetricsSmg12(processedDatasetSmg12);
+            }
+        }
+
+        function toggleSelectAllIndustrias() {
+            const keys = Object.keys(industrias);
+            const searchVal = normalizeStr(document.getElementById('indSearch')?.value || '');
+            const onlyVencendo = document.getElementById('chkOnlyVencendo')?.checked || false;
+            const saeCounts = getSaeCountsPerInd();
+
+            const visibleKeys = keys.filter(name => {
+                const ind = industrias[name];
+                const tagStr = ind.tag ? normalizeStr(ind.tag) : '';
+                const nameStr = normalizeStr(name);
+                if (searchVal && !nameStr.includes(searchVal) && !tagStr.includes(searchVal)) return false;
+                if (onlyVencendo) {
+                    const counts = saeCounts[name] || { este_mes: 0, mes_vem: 0, erros: 0 };
+                    const currentSubCount = currentTab === 'sae60' ? (counts[abaAtualSae] || 0) : 0;
+                    if (currentSubCount <= 0) return false;
+                }
+                return true;
+            });
+
+            const allVisibleSelected = visibleKeys.length > 0 && visibleKeys.every(k => selectedIndustriasForPrint.has(k));
+
+            if (allVisibleSelected) {
+                visibleKeys.forEach(k => selectedIndustriasForPrint.delete(k));
+            } else {
+                visibleKeys.forEach(k => selectedIndustriasForPrint.add(k));
+            }
+            renderIndustriesHeader();
+            if (currentTab === 'smg12') {
+                updateMetricsSmg12(processedDatasetSmg12);
+            }
+        }
+
+        function selectIndustria(name) {
+            currentIndustria = name;
+            renderIndustriesHeader();
+            if (currentTab === 'smg12') {
+                applyFiltersAndRender();
+            } else {
+                alternarAbaSae(abaAtualSae);
+            }
+        }
 
         function parseDate(val) {
             if (!val || val === '-' || val === '0') return null;
@@ -1148,253 +1075,30 @@
             }
 
             const str = String(val).trim();
-            if (!str) return null;
-
             const parts = str.split(/[\/\-\.]/);
             if (parts.length === 3) {
-                let p1 = parseInt(parts[0], 10);
-                let p2 = parseInt(parts[1], 10);
-                let p3 = parseInt(parts[2], 10);
-                if (isNaN(p1) || isNaN(p2) || isNaN(p3)) return null;
-
-                let year, month, day;
-                if (p1 > 1000) {
-                    year = p1;
-                    month = (p2 > 12 ? p3 : p2) - 1;
-                    day = p2 > 12 ? p2 : p3;
-                } else {
-                    year = p3 < 100 ? p3 + 2000 : p3;
-                    if (p2 > 12 && p1 <= 12) { month = p1 - 1; day = p2; }
-                    else if (p1 > 12 && p2 <= 12) { day = p1; month = p2 - 1; }
-                    else { day = p1; month = p2 - 1; }
-                }
-
-                if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
-                    const d = new Date(year, month, day);
-                    if (!isNaN(d.getTime())) return d;
+                let p1 = parseInt(parts[0], 10), p2 = parseInt(parts[1], 10), p3 = parseInt(parts[2], 10);
+                if (!isNaN(p1) && !isNaN(p2) && !isNaN(p3)) {
+                    let year = p3 < 100 ? p3 + 2000 : p3, month = p2 - 1, day = p1;
+                    if (p1 > 1000) { year = p1; month = p2 - 1; day = p3; }
+                    return new Date(year, month, day);
                 }
             }
             return null;
         }
 
         function formatDateDisplay(val) {
-            if (!val || val === '-' || val === '0') return '-';
-            const parsedDate = parseDate(val);
-            if (!parsedDate) return String(val).trim() || '-';
-            const day = String(parsedDate.getDate()).padStart(2, '0');
-            const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
-            const year = parsedDate.getFullYear();
-            if (year < 1990 || year > 2099) return String(val).trim() || '-';
-            return `${day}/${month}/${year}`;
+            const parsed = parseDate(val);
+            if (!parsed) return String(val || '-').trim() || '-';
+            const d = String(parsed.getDate()).padStart(2, '0');
+            const m = String(parsed.getMonth() + 1).padStart(2, '0');
+            return `${d}/${m}/${parsed.getFullYear()}`;
         }
 
-        function toggleRupturaMode() {
-            isRupturaActive = !isRupturaActive;
-            const btn = document.getElementById('btnToggleRuptura');
-            const icon = document.getElementById('iconRuptura');
-            const isvMinInput = document.getElementById('isvMinFilter');
-            const containerIsvMin = document.getElementById('containerIsvMin');
-            const thHeader = document.getElementById('thMetricHeader');
-
-            if (isRupturaActive) {
-                btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-600 bg-rose-600 text-white hover:bg-rose-700 transition flex items-center gap-1.5 shadow-sm";
-                icon.className = "fa-solid fa-triangle-exclamation text-white animate-pulse";
-                isvMinInput.disabled = true;
-                containerIsvMin.className = "flex items-center gap-1.5 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 shadow-sm opacity-50 cursor-not-allowed";
-                isvMinInput.className = "w-16 text-xs bg-transparent focus:outline-none font-mono font-bold text-slate-400 cursor-not-allowed";
-                thHeader.textContent = "RUPTURA (Dias)";
-            } else {
-                btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5 shadow-sm";
-                icon.className = "fa-solid fa-triangle-exclamation text-slate-400";
-                isvMinInput.disabled = false;
-                containerIsvMin.className = "flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-sm transition";
-                isvMinInput.className = "w-16 text-xs bg-transparent focus:outline-none font-mono font-bold text-rose-600 placeholder:font-normal placeholder:text-slate-400";
-                thHeader.textContent = "ISV";
-            }
-            applyFiltersAndRender();
-        }
-
-        function renderIndustriesHeader() {
-            const container = document.getElementById('industriesBar');
-            container.innerHTML = '';
-
-            const keys = Object.keys(industrias);
-            document.getElementById('totalIndustriasBadge').textContent = `${keys.length} cadastradas`;
-
-            const btnToggle = document.getElementById('btnToggleSelectAll');
-            const allSelected = keys.length > 0 && selectedIndustriasForPrint.size === keys.length;
-            btnToggle.innerHTML = allSelected 
-                ? `<i class="fa-solid fa-square-check text-brand-600"></i> <span>Desmarcar Todas</span>`
-                : `<i class="fa-regular fa-square text-slate-400"></i> <span>Selecionar Todas</span>`;
-
-            const searchQuery = (document.getElementById('indSearch')?.value || '').toLowerCase().trim();
-            const filteredKeys = keys.filter(name => {
-                if (!searchQuery) return true;
-                const tagVal = (industrias[name].tag || '').toLowerCase();
-                return name.toLowerCase().includes(searchQuery) || tagVal.includes(searchQuery);
-            });
-
-            // Mapear contagem de SKUs ativos por indústria na aba Vencimentos (SAE60)
-            const saeCountsPerInd = {};
-            if (currentTab === 'sae60' && globalResultadoProcessadoSae.length > 0) {
-                let activeSaeItems = [];
-                if (abaAtualSae === 'este_mes') {
-                    activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
-                } else if (abaAtualSae === 'mes_vem') {
-                    activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
-                } else if (abaAtualSae === 'erros') {
-                    activeSaeItems = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
-                }
-                activeSaeItems.forEach(r => {
-                    if (r.temIndustria && r.industria) {
-                        saeCountsPerInd[r.industria] = (saeCountsPerInd[r.industria] || 0) + 1;
-                    }
-                });
-            }
-
-            // Atualização do Botão Imprimir Indústrias c/ Vencimento
-            const btnPrintComVenc = document.getElementById('btnPrintComVencimento');
-            const lblPrintComVenc = document.getElementById('lblPrintComVencimento');
-
-            if (currentTab === 'sae60') {
-                const totalIndsComVencimento = Object.keys(saeCountsPerInd).length;
-                if (btnPrintComVenc && lblPrintComVenc) {
-                    btnPrintComVenc.classList.remove('hidden');
-                    let nomeAbaTxt = "com Vencimento";
-                    if (abaAtualSae === 'este_mes') nomeAbaTxt = "Vencimento Este Mês";
-                    else if (abaAtualSae === 'mes_vem') nomeAbaTxt = "Vencimento Mês Que Vem";
-                    else if (abaAtualSae === 'erros') nomeAbaTxt = "com Erro";
-
-                    if (totalIndsComVencimento > 0) {
-                        lblPrintComVenc.textContent = `Imprimir ${totalIndsComVencimento} Indústria(s) c/ ${nomeAbaTxt}`;
-                        btnPrintComVenc.disabled = false;
-                        btnPrintComVenc.className = "px-3 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs transition flex items-center gap-1.5 shadow-sm whitespace-nowrap cursor-pointer";
-                    } else {
-                        lblPrintComVenc.textContent = `Nenhuma Indústria c/ ${nomeAbaTxt}`;
-                        btnPrintComVenc.disabled = true;
-                        btnPrintComVenc.className = "px-3 py-1 bg-slate-200 text-slate-400 font-bold rounded-lg text-xs transition flex items-center gap-1.5 shadow-sm whitespace-nowrap opacity-60 cursor-not-allowed";
-                    }
-                }
-            } else {
-                if (btnPrintComVenc) btnPrintComVenc.classList.add('hidden');
-            }
-
-            // "Todas as Indústrias" Button
-            const isAllActive = currentIndustria === 'TODAS';
-            const btnAllGroup = document.createElement('div');
-            const activeAllBg = currentTab === 'sae60' ? 'bg-amber-600 border-amber-700' : 'bg-brand-600 border-brand-700';
-            btnAllGroup.className = `flex items-center rounded-xl border px-3 py-1 transition shadow-sm shrink-0 gap-1.5 cursor-pointer ${
-                isAllActive ? `${activeAllBg} text-white font-bold` : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-            }`;
-            btnAllGroup.innerHTML = `<i class="fa-solid fa-layer-group text-xs"></i> <span class="text-xs">Todas as Indústrias</span>`;
-            btnAllGroup.onclick = () => selectIndustria('TODAS');
-            container.appendChild(btnAllGroup);
-
-            if (filteredKeys.length === 0 && searchQuery) {
-                const noResultMsg = document.createElement('span');
-                noResultMsg.className = "text-xs text-slate-400 italic py-1 px-2";
-                noResultMsg.textContent = `Nenhuma indústria encontrada para "${searchQuery}"`;
-                container.appendChild(noResultMsg);
-                updatePrintButtonState();
-                return;
-            }
-
-            filteredKeys.forEach(name => {
-                const isActive = name === currentIndustria;
-                const isCheckedForPrint = selectedIndustriasForPrint.has(name);
-                const tagStr = industrias[name].tag;
-
-                const saeCount = saeCountsPerInd[name] || 0;
-                const hasSaeSkus = currentTab === 'sae60' && saeCount > 0;
-
-                let groupClasses = "flex items-center rounded-xl border px-2.5 py-1 transition shadow-sm shrink-0 gap-2 ";
-                if (hasSaeSkus) {
-                    if (isActive) {
-                        groupClasses += "bg-amber-500 border-amber-600 text-white font-bold ring-2 ring-amber-300 shadow-md";
-                    } else {
-                        groupClasses += "bg-amber-100 border-amber-400 text-amber-950 font-bold hover:bg-amber-200 animate-pulse";
-                    }
-                } else {
-                    if (isActive) {
-                        groupClasses += "bg-brand-50 border-brand-500 text-brand-900 font-semibold";
-                    } else {
-                        groupClasses += "bg-white border-slate-200 text-slate-600 hover:bg-slate-50";
-                    }
-                }
-
-                const tagBadge = tagStr ? `<span class="text-[9px] px-1.5 py-0.5 rounded font-bold ${isActive ? (hasSaeSkus ? 'bg-amber-200 text-amber-950' : 'bg-brand-200 text-brand-900') : 'bg-slate-100 text-slate-500 border border-slate-200'}">${tagStr}</span>` : '';
-                const saeBadge = hasSaeSkus ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${isActive ? 'bg-amber-950 text-amber-200' : 'bg-amber-500 text-white'}" title="${saeCount} SKU(s) em vencimento">${saeCount}</span>` : '';
-
-                const btnGroup = document.createElement('div');
-                btnGroup.className = groupClasses;
-
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.checked = isCheckedForPrint;
-                checkbox.className = "w-3.5 h-3.5 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer";
-                checkbox.onclick = (e) => {
-                    e.stopPropagation();
-                    toggleIndustryForPrint(name);
-                };
-
-                const btnSelect = document.createElement('button');
-                btnSelect.className = "text-xs flex items-center gap-1.5 focus:outline-none";
-                const iconColor = hasSaeSkus ? (isActive ? 'text-white' : 'text-amber-600') : (isActive ? 'text-brand-600' : 'text-slate-400');
-                btnSelect.innerHTML = `<i class="fa-solid fa-industry ${iconColor}"></i> ${name} ${tagBadge} ${saeBadge}`;
-                btnSelect.onclick = () => selectIndustria(name);
-
-                const btnEdit = document.createElement('button');
-                btnEdit.className = "ml-1 text-slate-400 hover:text-slate-700 text-[10px] rounded hover:bg-slate-200/60 p-1 transition";
-                btnEdit.title = "Editar Parâmetros";
-                btnEdit.innerHTML = `<i class="fa-solid fa-pen"></i>`;
-                btnEdit.onclick = (e) => { e.stopPropagation(); openModalIndustria(name); };
-
-                btnGroup.appendChild(checkbox);
-                btnGroup.appendChild(btnSelect);
-                btnGroup.appendChild(btnEdit);
-                container.appendChild(btnGroup);
-            });
-
-            updatePrintButtonState();
-        }
-
-        function toggleIndustryForPrint(name) {
-            if (selectedIndustriasForPrint.has(name)) selectedIndustriasForPrint.delete(name);
-            else selectedIndustriasForPrint.add(name);
-            renderIndustriesHeader();
-        }
-
-        function toggleSelectAllIndustrias() {
-            const keys = Object.keys(industrias);
-            if (selectedIndustriasForPrint.size === keys.length) selectedIndustriasForPrint.clear();
-            else keys.forEach(k => selectedIndustriasForPrint.add(k));
-            renderIndustriesHeader();
-        }
-
-        function updatePrintButtonState() {
-            const btn = document.getElementById('btnPrintSelection');
-            const lbl = document.getElementById('lblPrintBtn');
-            const count = selectedIndustriasForPrint.size;
-
-            if (!rawDatasetSmg12 || rawDatasetSmg12.length === 0) {
-                btn.disabled = true;
-                lbl.textContent = 'Imprimir Selecionadas';
-                return;
-            }
-
-            btn.disabled = count === 0;
-            if (count === 0) lbl.textContent = 'Nenhuma Selecionada';
-            else if (count === 1) lbl.textContent = `Imprimir ${Array.from(selectedIndustriasForPrint)[0]}`;
-            else lbl.textContent = `Imprimir Selecionadas (${count})`;
-        }
-
-        function selectIndustria(name) {
-            currentIndustria = name;
-            renderIndustriesHeader();
-            applyFiltersAndRender();
-            if (globalResultadoProcessadoSae.length > 0) {
-                alternarAbaSae(abaAtualSae);
-            }
+        function parseValor(val) {
+            if (!val) return 0;
+            const str = String(val).replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+            return parseFloat(str) || 0;
         }
 
         function handleFileUploadSmg12(event) {
@@ -1409,126 +1113,61 @@
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy' });
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    const json = XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false, dateNF: 'dd/mm/yyyy' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
                     processRawJsonSmg12(json);
                 } catch (err) {
-                    console.error("Erro ao ler arquivo smg12:", err);
-                    alert("Erro ao ler o arquivo smg12. Verifique se o formato é válido.");
+                    console.error("Erro ao ler smg12:", err);
+                    alert("Erro ao ler arquivo smg12.");
                 }
             };
             reader.readAsArrayBuffer(file);
         }
 
-        function handleFileUploadSae60(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const updateDisplays = (name) => {
-                const el1 = document.getElementById('fileNameDisplaySae60');
-                const el2 = document.getElementById('fileNameDisplaySae60Link');
-                if (el1) el1.textContent = name;
-                if (el2) el2.textContent = name;
-            };
-            updateDisplays(file.name);
-
-            const fileName = file.name.toLowerCase();
-            if (fileName.endsWith('.csv')) {
-                Papa.parse(file, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: function(results) {
-                        globalSaeRawData = results.data;
-                        document.getElementById('modalLiquida').classList.remove('hidden');
-                    }
-                });
-            } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        const firstSheet = workbook.SheetNames[0];
-                        const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { raw: false, defval: '' });
-                        globalSaeRawData = jsonData;
-                        document.getElementById('modalLiquida').classList.remove('hidden');
-                    } catch (err) {
-                        console.error("Erro ao ler arquivo sae60:", err);
-                        alert("Erro ao ler o arquivo sae60.");
-                    }
-                };
-                reader.readAsArrayBuffer(file);
-            }
-        }
-
         function processRawJsonSmg12(jsonRows) {
             if (!jsonRows || jsonRows.length === 0) return;
+
+            smg12SkuMap.clear();
 
             const parseNum = val => {
                 if (typeof val === 'number') return isNaN(val) ? 0 : val;
                 if (!val) return 0;
-                let s = val.toString().trim().replace(/\./g, '').replace(',', '.');
-                let n = parseFloat(s);
+                let n = parseFloat(String(val).trim().replace(/\./g, '').replace(',', '.'));
                 return isNaN(n) ? 0 : n;
             };
-
-            smg12SkuMap.clear();
 
             rawDatasetSmg12 = jsonRows.map(row => {
                 const getVal = (...keys) => {
                     for (let k of keys) {
-                        for (let rowKey in row) {
-                            if (rowKey.trim().toUpperCase() === k.toUpperCase()) return row[rowKey];
+                        for (let rK in row) {
+                            if (rK.trim().toUpperCase() === k.toUpperCase()) return row[rK];
                         }
                     }
                     return '';
                 };
 
                 const codigo = String(getVal('MERC', 'CODIGO', 'CÓDIGO') || '').trim();
-                const digito = getVal('DIGITO', 'DÍGITO') || '';
-                const descricao = getVal('DESCRICAO', 'DESCRIÇÃO') || '';
-                const emb = getVal('EMBALAGEM', 'EMB') || '';
-                const lastro = getVal('LASTRO') || '';
+                const digito = getVal('DIGITO', 'DÍGITO');
+                const descricao = getVal('DESCRICAO', 'DESCRIÇÃO');
+                const emb = getVal('EMBALAGEM', 'EMB');
+                const lastro = getVal('LASTRO');
                 const dtUltEnt = formatDateDisplay(getVal('DT ULT ENT', 'DT_ULT_ENT'));
-                const dtUltVnd = formatDateDisplay(getVal('DT ULT VND', 'DT_ULT_VND', 'DT ULT VENDA', 'DT_ULT_VENDA'));
+                const dtUltVnd = formatDateDisplay(getVal('DT ULT VND', 'DT_ULT_VND'));
                 const qtdUltEnt = parseNum(getVal('QTD ULT ENT', 'QTD_ULT_ENT'));
 
-                const pedCompra = parseNum(getVal('QTD PED COMPRA', 'QTD_PED_COMPRA'));
-                const pedFilial = parseNum(getVal('QTD PED FILIAL', 'QTD_PED_FILIAL'));
-                const pedNfAt = parseNum(getVal('QTD PED NF AT', 'QTD_PED_NF_AT'));
-                const pedPendente = pedCompra + pedFilial + pedNfAt;
-
+                const pedPendente = parseNum(getVal('QTD PED COMPRA')) + parseNum(getVal('QTD PED FILIAL')) + parseNum(getVal('QTD PED NF AT'));
                 const estoqueCx = parseNum(getVal('ESTOQ EMB1', 'ESTOQUE CX'));
                 const estoqueUnd = parseNum(getVal('ESTOQ EMB9', 'ESTOQUE UND'));
                 const vnd30diasCx = parseNum(getVal('QTD VENDA EMB1', 'VND 30DIAS CX'));
                 const bloqCx = parseNum(getVal('BLOQ1', 'BLOQ CX'));
-                const isv = parseNum(getVal('DIAS S/VND', 'DIAS S/ VND', 'ISV'));
-                const fornecedor = String(getVal('FORNECEDOR', 'CNPJ') || '').replace(/\D/g, '');
-
-                let matchedIndustriaName = '';
-                let temInd = false;
-
-                for (let [indName, indCfg] of Object.entries(industrias)) {
-                    const cleanCnpjs = (indCfg.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
-                    const keywords = (indCfg.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
-
-                    let matchCNPJ = cleanCnpjs.length > 0 && fornecedor.length > 0 && cleanCnpjs.some(c => fornecedor.includes(c) || c.includes(fornecedor));
-                    let isFornEmpty = !fornecedor || fornecedor === '0' || fornecedor === '00000000000000';
-                    let matchKw = isFornEmpty && keywords.length > 0 && keywords.some(kw => String(descricao).toLowerCase().includes(kw));
-
-                    if (matchCNPJ || matchKw) {
-                        matchedIndustriaName = indName;
-                        temInd = true;
-                        break;
-                    }
-                }
+                const isv = parseNum(getVal('DIAS S/VND', 'ISV'));
+                const fornecedor = String(getVal('FORNECEDOR', 'CNPJ') || '').trim();
 
                 if (codigo) {
                     smg12SkuMap.set(codigo, {
-                        industria: matchedIndustriaName,
-                        temIndustria: temInd,
-                        fornecedor: fornecedor
+                        fornecedor: fornecedor,
+                        descricao: descricao,
+                        emb: emb
                     });
                 }
 
@@ -1547,14 +1186,11 @@
                     'vnd 30dias cx': vnd30diasCx,
                     'bloq cx': bloqCx,
                     'isv': isv,
-                    'FORNECEDOR': fornecedor,
-                    'industria': matchedIndustriaName,
-                    'temIndustria': temInd
+                    'FORNECEDOR': fornecedor
                 };
             });
 
             applyFiltersAndRender();
-            if (globalSaeFilteredData.length > 0) processarAbaSae60(globalSaeFilteredData, false);
         }
 
         function resetDataSmg12() {
@@ -1565,321 +1201,61 @@
             document.getElementById('fileNameDisplaySmg12').textContent = 'Selecionar Arquivo smg12';
             document.getElementById('btnResetSmg12').classList.add('hidden');
             applyFiltersAndRender();
-            if (globalSaeFilteredData.length > 0) processarAbaSae60(globalSaeFilteredData, false);
         }
 
-        function applyFiltersAndRender() {
-            updatePrintButtonState();
+        function handleFileUploadSae60(event) {
+            const file = event.target.files[0];
+            if (!file) return;
 
-            if (!rawDatasetSmg12 || rawDatasetSmg12.length === 0) {
-                renderTableSmg12([]);
-                updateMetricsSmg12([]);
-                return;
-            }
+            const dispLabel = document.getElementById('fileNameDisplaySae60');
+            if (dispLabel) dispLabel.textContent = file.name;
 
-            const searchQuery = (document.getElementById('tableSearch')?.value || '').toLowerCase().trim();
-            const minIsvVal = parseFloat(document.getElementById('isvMinFilter')?.value) || 0;
-            const todayZero = new Date(new Date().setHours(0,0,0,0)).getTime();
+            const dispLinkLabel = document.getElementById('fileNameDisplaySae60Link');
+            if (dispLinkLabel) dispLinkLabel.textContent = file.name;
 
-            let filtered = rawDatasetSmg12.filter(item => {
-                if (currentIndustria && currentIndustria !== 'TODAS') {
-                    if (item.industria !== currentIndustria) return false;
-                }
-
-                if (isRupturaActive) {
-                    const entDate = parseDate(item['DT ULT ENT']);
-                    if (!entDate) return false;
-
-                    const vndDate = parseDate(item['DT ULT VND']);
-                    let isRuptura = false;
-                    if (vndDate) {
-                        const entTime = new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
-                        const vndTime = new Date(vndDate.getFullYear(), vndDate.getMonth(), vndDate.getDate()).getTime();
-                        isRuptura = vndTime < entTime;
-                    } else {
-                        isRuptura = true;
+            const fileName = file.name.toLowerCase();
+            if (fileName.endsWith('.csv')) {
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        globalSaeRawData = results.data;
+                        exibirModalLiquida();
                     }
-
-                    if (!isRuptura) return false;
-
-                    const entZero = new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
-                    item['ruptura'] = Math.max(0, Math.floor((todayZero - entZero) / (1000 * 60 * 60 * 24)));
-                    return true;
-                } else {
-                    const itemIsv = parseFloat(item['isv']) || 0;
-                    if (minIsvVal > 0 && itemIsv < minIsvVal) return false;
-                    return true;
-                }
-            });
-
-            if (searchQuery) {
-                filtered = filtered.filter(item => 
-                    String(item['código']).toLowerCase().includes(searchQuery) ||
-                    String(item['DESCRICAO']).toLowerCase().includes(searchQuery)
-                );
-            }
-
-            if (isRupturaActive) {
-                filtered.sort((a, b) => (b['ruptura'] || 0) - (a['ruptura'] || 0));
+                });
             } else {
-                filtered.sort((a, b) => (b['isv'] || 0) - (a['isv'] || 0));
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    globalSaeRawData = XLSX.utils.sheet_to_json(sheet, { raw: false, defval: '' });
+                    exibirModalLiquida();
+                };
+                reader.readAsArrayBuffer(file);
             }
-
-            processedDatasetSmg12 = filtered;
-            renderTableSmg12(filtered);
-            updateMetricsSmg12(filtered);
         }
 
-        function renderTableSmg12(data) {
-            const tbody = document.getElementById('tableBodySmg12');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-
-            document.getElementById('txtTableCountSmg12').textContent = `Exibindo ${data.length} registros`;
-
-            if (data.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="14" class="py-12 text-center text-slate-400">
-                            <i class="fa-solid fa-filter-circle-xmark text-2xl mb-1 text-slate-300"></i>
-                            <p class="text-xs font-semibold">Nenhum produto encontrado com os parâmetros atuais.</p>
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            const fmtNum = num => (num || 0).toLocaleString('pt-BR');
-
-            data.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.className = "transition border-b border-slate-200/60";
-                const metricVal = isRupturaActive ? (item['ruptura'] || 0) : (item['isv'] || 0);
-
-                tr.innerHTML = `
-                    <td class="py-2 px-3 font-mono text-slate-900 font-medium">${item['código']}</td>
-                    <td class="py-2 px-3">${item['DIGITO']}</td>
-                    <td class="py-2 px-3 font-medium text-slate-800">${item['DESCRICAO']}</td>
-                    <td class="py-2 px-3">${item['emb']}</td>
-                    <td class="py-2 px-3 text-center">${item['LASTRO']}</td>
-                    <td class="py-2 px-3 text-center font-medium">${formatDateDisplay(item['DT ULT ENT'])}</td>
-                    <td class="py-2 px-3 text-center font-medium text-slate-500">${formatDateDisplay(item['DT ULT VND'])}</td>
-                    <td class="py-2 px-3 text-right">${fmtNum(item['QTD ULT ENT'])}</td>
-                    <td class="py-2 px-3 text-right font-bold bg-amber-50 text-amber-900 border-x border-amber-200/50">${fmtNum(item['ped. pendente'])}</td>
-                    <td class="py-2 px-3 text-right">${fmtNum(item['estoque cx'])}</td>
-                    <td class="py-2 px-3 text-right">${fmtNum(item['estoque und'])}</td>
-                    <td class="py-2 px-3 text-right">${fmtNum(item['vnd 30dias cx'])}</td>
-                    <td class="py-2 px-3 text-right">${fmtNum(item['bloq cx'])}</td>
-                    <td class="py-2 px-3 text-right font-bold text-rose-700 bg-rose-50 border-l border-rose-200/60">${fmtNum(metricVal)}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function updateMetricsSmg12(data) {
-            const totalSKUs = data.length;
-            let sumEstoqueCx = 0, sumPedPendente = 0, sumMetric = 0;
-
-            data.forEach(item => {
-                sumEstoqueCx += item['estoque cx'] || 0;
-                sumPedPendente += item['ped. pendente'] || 0;
-                sumMetric += isRupturaActive ? (item['ruptura'] || 0) : (item['isv'] || 0);
-            });
-
-            const avgMetric = totalSKUs > 0 ? (sumMetric / totalSKUs).toFixed(1) : 0;
-
-            document.getElementById('kpiTotalSKUs').textContent = totalSKUs.toLocaleString('pt-BR');
-            document.getElementById('kpiEstoqueCx').textContent = sumEstoqueCx.toLocaleString('pt-BR');
-            document.getElementById('kpiPedPendente').textContent = sumPedPendente.toLocaleString('pt-BR');
-            document.getElementById('kpiAvgISV').textContent = avgMetric;
-            
-            const lbl = document.getElementById('kpiAvgLabel');
-            if (lbl) lbl.textContent = isRupturaActive ? "Média Ruptura (Dias)" : "Média ISV (Dias s/ Venda)";
-        }
-
-        function imprimirSelecionadas() {
-            if (!rawDatasetSmg12 || rawDatasetSmg12.length === 0) {
-                alert("Carregue um arquivo smg12 para realizar a impressão.");
-                return;
-            }
-
-            if (selectedIndustriasForPrint.size === 0) {
-                alert("Selecione pelo menos uma indústria para imprimir.");
-                return;
-            }
-
-            const printContainer = document.getElementById('printArea');
-            let fullHtml = '';
-            const selectedList = Array.from(selectedIndustriasForPrint);
-            const minIsvVal = parseFloat(document.getElementById('isvMinFilter')?.value) || 0;
-            const todayZero = new Date(new Date().setHours(0,0,0,0)).getTime();
-
-            selectedList.forEach((indName) => {
-                let filtered = rawDatasetSmg12.filter(item => {
-                    if (item.industria !== indName) return false;
-
-                    if (isRupturaActive) {
-                        const entDate = parseDate(item['DT ULT ENT']);
-                        if (!entDate) return false;
-
-                        const vndDate = parseDate(item['DT ULT VND']);
-                        let isRuptura = false;
-                        if (vndDate) {
-                            const entTime = new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
-                            const vndTime = new Date(vndDate.getFullYear(), vndDate.getMonth(), vndDate.getDate()).getTime();
-                            isRuptura = vndTime < entTime;
-                        } else {
-                            isRuptura = true;
-                        }
-
-                        if (!isRuptura) return false;
-
-                        const entZero = new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
-                        item['ruptura'] = Math.max(0, Math.floor((todayZero - entZero) / (1000 * 60 * 60 * 24)));
-                        return true;
-                    } else {
-                        const itemIsv = parseFloat(item['isv']) || 0;
-                        if (minIsvVal > 0 && itemIsv < minIsvVal) return false;
-                        return true;
-                    }
-                });
-
-                if (isRupturaActive) filtered.sort((a, b) => (b['ruptura'] || 0) - (a['ruptura'] || 0));
-                else filtered.sort((a, b) => (b['isv'] || 0) - (a['isv'] || 0));
-
-                fullHtml += generatePrintHTMLForIndustry(indName, filtered);
-            });
-
-            printContainer.innerHTML = fullHtml;
-            const originalTitle = document.title;
-            document.title = "";
-            window.print();
-            setTimeout(() => { document.title = originalTitle; }, 500);
-        }
-
-        function generatePrintHTMLForIndustry(name, data) {
-            const dateStr = new Date().toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            const fmtNum = num => (num || 0).toLocaleString('pt-BR');
-            const ROWS_PER_PAGE = 22;
-            const colTitle = isRupturaActive ? "RUPTURA" : "ISV";
-            const titlePrefix = isRupturaActive ? "RUPTURA OPERACIONAL - " : "";
-
-            if (!data || data.length === 0) {
-                return `
-                    <div class="industry-page-block">
-                        <table class="print-table">
-                            <thead>
-                                <tr class="print-header-row">
-                                    <th colspan="14" class="print-header-cell">
-                                        <div class="print-header-content">
-                                            <div class="print-title">${titlePrefix}INDÚSTRIA ${name.toUpperCase()} - FOLHA 1</div>
-                                            <div class="print-meta-info">Emitido em: ${dateStr} | Total SKUs: 0</div>
-                                        </div>
-                                    </th>
-                                </tr>
-                                <tr class="print-columns-row">
-                                    <th>Código</th><th>Dígito</th><th>Descrição</th><th>Emb</th><th>Lastro</th>
-                                    <th>Dt Ult Ent</th><th>Dt Ult Vnd</th><th style="text-align:right">Qtd Ult Ent</th>
-                                    <th style="text-align:right">Ped. Pendente</th><th style="text-align:right">Estoque Cx</th>
-                                    <th style="text-align:right">Estoque Und</th><th style="text-align:right">Vnd 30dias Cx</th>
-                                    <th style="text-align:right">Bloq Cx</th><th style="text-align:right">${colTitle}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="14" style="text-align:center; padding: 12px; font-style: italic;">Nenhum produto encontrado para a indústria ${name}.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            }
-
-            const totalPages = Math.ceil(data.length / ROWS_PER_PAGE);
-            let html = '';
-
-            for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
-                const pageNum = pageIdx + 1;
-                const startIdx = pageIdx * ROWS_PER_PAGE;
-                const pageData = data.slice(startIdx, startIdx + ROWS_PER_PAGE);
-
-                let rowsHtml = '';
-                pageData.forEach(item => {
-                    const metricVal = isRupturaActive ? (item['ruptura'] || 0) : (item['isv'] || 0);
-                    rowsHtml += `
-                        <tr>
-                            <td style="font-family: monospace;">${item['código']}</td>
-                            <td style="text-align:center;">${item['DIGITO']}</td>
-                            <td style="font-weight: 500;">${item['DESCRICAO']}</td>
-                            <td>${item['emb']}</td>
-                            <td style="text-align:center">${item['LASTRO']}</td>
-                            <td style="text-align:center">${formatDateDisplay(item['DT ULT ENT'])}</td>
-                            <td style="text-align:center">${formatDateDisplay(item['DT ULT VND'])}</td>
-                            <td style="text-align:right">${fmtNum(item['QTD ULT ENT'])}</td>
-                            <td style="text-align:right;" class="print-highlight-amber">${fmtNum(item['ped. pendente'])}</td>
-                            <td style="text-align:right">${fmtNum(item['estoque cx'])}</td>
-                            <td style="text-align:right">${fmtNum(item['estoque und'])}</td>
-                            <td style="text-align:right">${fmtNum(item['vnd 30dias cx'])}</td>
-                            <td style="text-align:right">${fmtNum(item['bloq cx'])}</td>
-                            <td style="text-align:right;" class="print-highlight-rose">${fmtNum(metricVal)}</td>
-                        </tr>
-                    `;
-                });
-
-                html += `
-                    <div class="industry-page-block">
-                        <table class="print-table">
-                            <thead>
-                                <tr class="print-header-row">
-                                    <th colspan="14" class="print-header-cell">
-                                        <div class="print-header-content">
-                                            <div class="print-title">${titlePrefix}INDÚSTRIA ${name.toUpperCase()} - FOLHA ${pageNum}</div>
-                                            <div class="print-meta-info">Emitido em: ${dateStr} | Total SKUs: ${data.length}</div>
-                                        </div>
-                                    </th>
-                                </tr>
-                                <tr class="print-columns-row">
-                                    <th>Código</th><th>Dígito</th><th>Descrição</th><th>Emb</th><th>Lastro</th>
-                                    <th>Dt Ult Ent</th><th>Dt Ult Vnd</th><th style="text-align:right">Qtd Ult Ent</th>
-                                    <th style="text-align:right">Ped. Pendente</th><th style="text-align:right">Estoque Cx</th>
-                                    <th style="text-align:right">Estoque Und</th><th style="text-align:right">Vnd 30dias Cx</th>
-                                    <th style="text-align:right">Bloq Cx</th><th style="text-align:right">${colTitle}</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rowsHtml}</tbody>
-                        </table>
-                    </div>
-                `;
-            }
-
-            return html;
+        function exibirModalLiquida() {
+            document.getElementById('modalLiquida').classList.remove('hidden');
         }
 
         function confirmarAnaliseLiquida(filtrar) {
             document.getElementById('modalLiquida').classList.add('hidden');
-            let dadosProcessar = globalSaeRawData;
+            let dados = globalSaeRawData;
 
             if (filtrar) {
-                const setoresIgnorarNorm = setoresLiquidaIgnorar.map(s => normalizeStr(s));
-                dadosProcessar = globalSaeRawData.filter(row => {
-                    const setorRaw = row['SETOR BALANÇO'] || row['SETOR BALANCO'] || row['SETOR FÍSICO'] || row['SETOR FISICO'] || '';
-                    const setorNorm = normalizeStr(setorRaw);
-                    if (!setorNorm) return true;
-                    return !setoresIgnorarNorm.some(s => setorNorm.includes(s) || s.includes(setorNorm));
+                dados = globalSaeRawData.filter(row => {
+                    const setor = normalizeStr(row['SETOR BALANÇO'] || row['SETOR BALANCO'] || '');
+                    return !setoresLiquidaIgnorar.some(s => setor.includes(normalizeStr(s)));
                 });
             }
 
-            globalSaeFilteredData = dadosProcessar;
-            processarAbaSae60(dadosProcessar, true);
-            switchTab('sae60');
+            globalSaeFilteredData = dados;
+            executarAnaliseFIFOSae(dados);
         }
 
-        function parseValor(val) {
-            if (!val) return 0;
-            val = String(val).replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
-            return parseFloat(val) || 0;
-        }
-
-        function processarAbaSae60(dataRaw = globalSaeFilteredData, isNewUpload = false) {
-            globalSaeFilteredData = dataRaw;
+        function executarAnaliseFIFOSae(dataRaw) {
             gruposSKUGlobalSae = {};
 
             dataRaw.forEach(row => {
@@ -1892,6 +1268,7 @@
             const hoje = new Date();
             const mesAtual = hoje.getMonth();
             const anoAtual = hoje.getFullYear();
+
             const mesQueVemObj = new Date(anoAtual, mesAtual + 1, 1);
             const mesQueVem = mesQueVemObj.getMonth();
             const anoMesQueVem = mesQueVemObj.getFullYear();
@@ -1899,27 +1276,9 @@
             let resultados = [];
             let totalErrosData = 0;
 
-            const getEstLiqEmb1 = (row) => {
-                if (!row) return 0;
-                for (let k of ['EST. LÍQ. EMB1', 'EST. LIQ. EMB1', 'EST_LIQ_EMB1', 'EST LÍQ EMB1', 'EST LIQ EMB1']) {
-                    if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
-                        return parseFloat(String(row[k]).replace(',', '.')) || 0;
-                    }
-                }
-                for (let key in row) {
-                    const normKey = normalizeStr(key);
-                    if (normKey.includes('EST') && normKey.includes('LIQ') && normKey.includes('EMB1')) {
-                        return parseFloat(String(row[key]).replace(',', '.')) || 0;
-                    }
-                }
-                return 0;
-            };
-
             Object.keys(gruposSKUGlobalSae).forEach(sku => {
                 let entradas = gruposSKUGlobalSae[sku];
-
-                // Obtém o valor de EST. LÍQ. EMB1 da última linha do SKU (de cima para baixo na ordem original do arquivo)
-                const estAtualVal = getEstLiqEmb1(entradas[entradas.length - 1]);
+                let smg12Info = smg12SkuMap.get(sku) || null;
 
                 entradas.forEach(e => {
                     e._dtEntrada = parseDate(e['DATA ENTRADA']);
@@ -1937,39 +1296,14 @@
                 entradas.sort((a, b) => (a._dtEntrada || 0) - (b._dtEntrada || 0));
 
                 let saldoRemanenteEmb1 = entradas[entradas.length - 1]._estLiqEmb1;
-                let saldoRemanenteEmb9 = entradas[entradas.length - 1]._estLiqEmb9;
-
-                let matchedIndName = '';
-                let temInd = false;
-
-                if (smg12SkuMap.has(sku)) {
-                    const smgInfo = smg12SkuMap.get(sku);
-                    matchedIndName = smgInfo.industria;
-                    temInd = smgInfo.temIndustria;
-                } else {
-                    const descStr = String(entradas[0]['DESCRIÇÃO MERCADORIA'] || entradas[0]['DESCRICAO'] || '').toLowerCase();
-                    for (let [indName, indCfg] of Object.entries(industrias)) {
-                        const keywords = (indCfg.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
-                        if (keywords.length > 0 && keywords.some(kw => descStr.includes(kw))) {
-                            matchedIndName = indName;
-                            temInd = true;
-                            break;
-                        }
-                    }
-                }
 
                 for (let i = entradas.length - 1; i >= 0; i--) {
                     const e = entradas[i];
+
                     let alocadoEmb1 = 0;
                     if (saldoRemanenteEmb1 > 0 && e._qEmb1 > 0) {
                         alocadoEmb1 = Math.min(e._qEmb1, saldoRemanenteEmb1);
                         saldoRemanenteEmb1 -= alocadoEmb1;
-                    }
-
-                    let alocadoEmb9 = 0;
-                    if (saldoRemanenteEmb9 > 0 && e._qEmb9 > 0) {
-                        alocadoEmb9 = Math.min(e._qEmb9, saldoRemanenteEmb9);
-                        saldoRemanenteEmb9 -= alocadoEmb9;
                     }
 
                     let erroLancamento = false;
@@ -1979,10 +1313,10 @@
                         const diffDias = Math.round((e._dtVenc - e._dtEntrada) / (1000 * 60 * 60 * 24));
                         if (e._tempoVida > 0 && diffDias > 730 && e._tempoVida <= 365) {
                             erroLancamento = true;
-                            motivoErro = `Intervalo de ${diffDias} dias excede validade (${e._tempoVida}d)`;
+                            motivoErro = `Intervalo de ${diffDias}d excede validade (${e._tempoVida}d)`;
                         } else if (e._tempoVida > 0 && diffDias > (e._tempoVida * 2.5) && e._tempoVida < 3650) {
                             erroLancamento = true;
-                            motivoErro = `Intervalo de ${diffDias} dias desproporcional ao tempo de vida (${e._tempoVida}d)`;
+                            motivoErro = `Intervalo de ${diffDias}d desproporcional ao tempo de vida (${e._tempoVida}d)`;
                         }
                     }
 
@@ -1993,20 +1327,20 @@
 
                     if (e._dtVenc && alocadoEmb1 > 0) {
                         const diasAteVenc = Math.ceil((e._dtVenc - hoje) / (1000 * 60 * 60 * 24));
-                        const vendaDiariaAtual = e._vnd30Emb1 / 30;
+                        const vendaDiaria = e._vnd30Emb1 / 30;
 
                         if (diasAteVenc <= 0) {
                             statusGiro = "Preocupante (Vencido)";
                             badgeColor = "bg-rose-100 text-rose-800 border-rose-300";
-                        } else if (vendaDiariaAtual <= 0) {
+                        } else if (vendaDiaria <= 0) {
                             statusGiro = "Preocupante (Sem Venda)";
                             badgeColor = "bg-slate-200 text-slate-700 border-slate-300";
                         } else {
-                            const projecaoVendasAteVenc = vendaDiariaAtual * diasAteVenc;
-                            if (projecaoVendasAteVenc >= alocadoEmb1) {
+                            const projecao = vendaDiaria * diasAteVenc;
+                            if (projecao >= alocadoEmb1) {
                                 statusGiro = "Normal";
                                 badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
-                            } else if (projecaoVendasAteVenc >= (alocadoEmb1 * 0.7)) {
+                            } else if (projecao >= (alocadoEmb1 * 0.7)) {
                                 statusGiro = "Atenção";
                                 badgeColor = "bg-amber-100 text-amber-800 border-amber-300";
                             } else {
@@ -2016,39 +1350,65 @@
                         }
                     }
 
-                    let ehEsteMes = false, ehMesVem = false;
+                    let ehEsteMes = false;
+                    let ehMesVem = false;
+
                     if (e._dtVenc) {
-                        const m = e._dtVenc.getMonth(), a = e._dtVenc.getFullYear();
+                        const m = e._dtVenc.getMonth();
+                        const a = e._dtVenc.getFullYear();
                         if (m === mesAtual && a === anoAtual) ehEsteMes = true;
                         if (m === mesQueVem && a === anoMesQueVem) ehMesVem = true;
                     }
 
-                    if (alocadoEmb1 > 0 || alocadoEmb9 > 0 || erroLancamento) {
+                    let temInd = false;
+                    let indPertencente = null;
+                    let skuFornecedor = smg12Info ? smg12Info.fornecedor : null;
+
+                    Object.keys(industrias).forEach(indName => {
+                        const ind = industrias[indName];
+                        const cleanCnpjs = (ind.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
+                        const keywords = (ind.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+
+                        if (skuFornecedor) {
+                            const fornClean = skuFornecedor.replace(/\D/g, '');
+                            if (cleanCnpjs.some(c => fornClean.includes(c) || c.includes(fornClean))) {
+                                temInd = true;
+                                indPertencente = indName;
+                            }
+                        }
+
+                        if (!temInd && keywords.length > 0) {
+                            const desc = String(e['DESCRIÇÃO MERCADORIA'] || '').toLowerCase();
+                            if (keywords.some(kw => desc.includes(kw))) {
+                                temInd = true;
+                                indPertencente = indName;
+                            }
+                        }
+                    });
+
+                    if (alocadoEmb1 > 0 || erroLancamento) {
                         resultados.push({
                             codigo: sku,
-                            descricao: e['DESCRIÇÃO MERCADORIA'] || e['DESCRICAO'] || '',
+                            descricao: e['DESCRIÇÃO MERCADORIA'] || '',
                             embalagem: e['EMBALAGEM'] || '',
                             dataEntrada: formatDateDisplay(e._dtEntrada),
                             dataVencimento: formatDateDisplay(e._dtVenc),
-                            estAtual: estAtualVal,
                             valorVencimento: e._valorVencimento,
                             tempoVida: e._tempoVida,
                             qtdeEntradaEmb1: e._qEmb1,
                             estoqueRestanteEmb1: alocadoEmb1,
-                            qtdeEntradaEmb9: e._qEmb9,
-                            estoqueRestanteEmb9: alocadoEmb9,
+                            estLiqAtual: e._estLiqEmb1,
                             vnd30Emb1: e._vnd30Emb1,
                             diasSemVenda: e._diasSemVenda,
                             statusGiro: statusGiro,
                             badgeColor: badgeColor,
-                            estLiqTotalEmb1: e._estLiqEmb1,
-                            estLiqTotalEmb9: e._estLiqEmb9,
                             erroLancamento: erroLancamento ? "SIM" : "NÃO",
                             motivoErro: motivoErro,
                             ehEsteMes: ehEsteMes,
                             ehMesVem: ehMesVem,
-                            industria: matchedIndName,
-                            temIndustria: temInd
+                            temInd: temInd,
+                            indPertencente: indPertencente,
+                            skuFornecedor: skuFornecedor
                         });
                     }
                 }
@@ -2071,22 +1431,19 @@
             document.getElementById('cntErros').innerText = listErros.length;
 
             const badgeCount = document.getElementById('badgeSaeCount');
-            badgeCount.textContent = listEsteMes.length + listMesVem.length;
-            badgeCount.classList.remove('hidden');
-
-            if (isNewUpload) {
-                currentIndustria = 'TODAS';
+            if (badgeCount) {
+                badgeCount.innerText = listEsteMes.length;
+                badgeCount.classList.remove('hidden');
             }
+
             renderIndustriesHeader();
-            alternarAbaSae(abaAtualSae);
+            alternarAbaSae('este_mes');
         }
 
         function alternarAbaSae(aba) {
             abaAtualSae = aba;
             todosExpandidosSae = false;
             atualizarBotaoToggleAllSae();
-
-            renderIndustriesHeader();
 
             const btnEsteMes = document.getElementById('btnEsteMes');
             const btnMesVem = document.getElementById('btnMesVem');
@@ -2097,34 +1454,143 @@
                 btn.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300";
             });
 
-            let dadosParaExibir = [];
-
+            let dados = [];
             if (aba === 'este_mes') {
                 btnEsteMes.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-amber-500 text-white shadow-sm";
-                labelStatus.innerText = "Exibindo: Vencimentos Deste Mês (Clique na linha para expandir)";
-                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
+                labelStatus.innerText = "Exibindo: Vencimentos Deste Mês";
+                dados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
             } else if (aba === 'mes_vem') {
                 btnMesVem.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-orange-500 text-white shadow-sm";
-                labelStatus.innerText = "Exibindo: Vencimentos do Mês Seguinte (Clique na linha para expandir)";
-                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
+                labelStatus.innerText = "Exibindo: Vencimentos do Mês Seguinte";
+                dados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
             } else if (aba === 'erros') {
                 btnErros.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-rose-600 text-white shadow-sm";
-                labelStatus.innerText = "Exibindo: Relatório de Erros de Lançamento (Clique na linha para expandir)";
-                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
+                labelStatus.innerText = "Exibindo: Relatório de Erros de Lançamento";
+                dados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
             }
 
-            if (currentIndustria && currentIndustria !== 'TODAS' && industrias[currentIndustria]) {
-                dadosParaExibir = dadosParaExibir.filter(r => r.industria === currentIndustria);
+            if (currentIndustria !== 'TODAS') {
+                const indConfig = industrias[currentIndustria] || { cnpjs: [], keywords: [] };
+                const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
+                const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+
+                dados = dados.filter(r => {
+                    if (r.skuFornecedor) {
+                        const fornClean = r.skuFornecedor.replace(/\D/g, '');
+                        if (cleanCnpjs.some(c => fornClean.includes(c) || c.includes(fornClean))) return true;
+                    }
+                    if (keywords.length > 0) {
+                        const desc = String(r.descricao).toLowerCase();
+                        if (keywords.some(kw => desc.includes(kw))) return true;
+                    }
+                    return r.indPertencente === currentIndustria;
+                });
             }
 
-            dadosParaExibir.sort((a, b) => b.valorVencimento - a.valorVencimento);
-            renderizarTabelaSae(dadosParaExibir);
+            renderIndustriesHeader();
+            renderizarTabelaSae(dados);
         }
 
-        function atualizarBotaoToggleAllSae() {
-            const btnLabel = document.getElementById('lblToggleAllSae');
-            if (!btnLabel) return;
-            btnLabel.innerText = todosExpandidosSae ? "Recolher Todos Os Históricos" : "Expandir Todos Os Históricos";
+        function renderizarTabelaSae(dados) {
+            const tbody = document.getElementById('tableBodySae60');
+            tbody.innerHTML = '';
+
+            if (!dados || dados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-slate-400">Nenhum registro encontrado para a indústria e filtro selecionados.</td></tr>`;
+                return;
+            }
+
+            let htmlBuffer = '';
+
+            dados.forEach((row, index) => {
+                const detailId = `detailSae-${index}`;
+                const bgRow = index % 2 === 0 ? 'bg-white' : 'bg-slate-50/80';
+
+                const indBadge = row.temInd
+                    ? `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] px-1.5 py-0.5 rounded font-bold" title="Indústria: ${row.indPertencente || 'Cadastrada'}">S</span>`
+                    : `<span class="bg-slate-100 text-slate-400 border border-slate-200 text-[10px] px-1.5 py-0.5 rounded font-bold">N</span>`;
+
+                htmlBuffer += `
+                    <tr class="${bgRow} hover:bg-amber-50/60 transition cursor-pointer border-b border-slate-200" onclick="toggleHistoricoSae('${detailId}', 'iconSae-${index}')">
+                        <td class="p-3 text-center text-slate-400 font-bold no-print">
+                            <i class="fa-solid fa-chevron-right transition-transform text-xs" id="iconSae-${index}"></i>
+                        </td>
+                        <td class="p-3 text-center">${indBadge}</td>
+                        <td class="p-3 font-mono font-bold text-slate-900">${row.codigo}</td>
+                        <td class="p-3 font-medium text-slate-800">${row.descricao}</td>
+                        <td class="p-3 text-slate-600">${row.embalagem}</td>
+                        <td class="p-3 text-center">${row.dataEntrada}</td>
+                        <td class="p-3 text-center font-bold text-amber-800">${row.dataVencimento}</td>
+                        <td class="p-3 text-right font-bold text-slate-700">${row.estLiqAtual} CX</td>
+                        <td class="p-3 text-right font-bold text-amber-900 bg-amber-50">${row.estoqueRestanteEmb1} CX</td>
+                        <td class="p-3 text-right font-semibold text-brand-700">${row.vnd30Emb1} CX</td>
+                        <td class="p-3 text-center text-slate-600">${row.diasSemVenda} d</td>
+                        <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold border inline-block ${row.badgeColor}">${row.statusGiro}</span></td>
+                    </tr>
+                `;
+
+                const historico = gruposSKUGlobalSae[row.codigo] || [];
+                let historicoRows = '';
+                historico.forEach(h => {
+                    historicoRows += `
+                        <tr class="hover:bg-white">
+                            <td class="p-1 border border-slate-200 font-medium">${formatDateDisplay(h._dtEntrada)}</td>
+                            <td class="p-1 border border-slate-200 font-medium text-amber-700">${formatDateDisplay(h._dtVenc)}</td>
+                            <td class="p-1 border border-slate-200 text-right">${h._qEmb1}</td>
+                            <td class="p-1 border border-slate-200 text-right">${h._qEmb9}</td>
+                            <td class="p-1 border border-slate-200 text-right">${h._estLiqEmb1}</td>
+                            <td class="p-1 border border-slate-200 text-right">${h._estLiqEmb9}</td>
+                            <td class="p-1 border border-slate-200 text-right text-brand-700 font-medium">${h._vnd30Emb1}</td>
+                            <td class="p-1 border border-slate-200 text-center">${h._tempoVida} d</td>
+                            <td class="p-1 border border-slate-200 text-right font-semibold">R$ ${h._valorVencimento.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
+                });
+
+                htmlBuffer += `
+                    <tr id="${detailId}" class="hidden detail-row-sae bg-slate-100">
+                        <td colspan="12" class="p-3">
+                            <div class="bg-slate-50 border border-slate-300 rounded-lg p-2.5">
+                                <div class="text-[10px] font-bold text-slate-600 uppercase mb-1">
+                                    Histórico de Entradas Originais (${historico.length})
+                                </div>
+                                <table class="w-full text-[10px] text-left border-collapse">
+                                    <thead class="bg-slate-200 text-slate-700 font-semibold uppercase">
+                                        <tr>
+                                            <th class="p-1 border border-slate-300">Entrada</th>
+                                            <th class="p-1 border border-slate-300">Vencimento</th>
+                                            <th class="p-1 border border-slate-300 text-right">Qtd EMB1</th>
+                                            <th class="p-1 border border-slate-300 text-right">Qtd EMB9</th>
+                                            <th class="p-1 border border-slate-300 text-right">Est.Líq 1</th>
+                                            <th class="p-1 border border-slate-300 text-right">Est.Líq 9</th>
+                                            <th class="p-1 border border-slate-300 text-right">Vnd 30d</th>
+                                            <th class="p-1 border border-slate-300 text-center">Vida</th>
+                                            <th class="p-1 border border-slate-300 text-right">Valor Venc.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${historicoRows}</tbody>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = htmlBuffer;
+        }
+
+        function toggleHistoricoSae(detailId, iconId) {
+            const detailRow = document.getElementById(detailId);
+            const icon = document.getElementById(iconId);
+            if (!detailRow) return;
+
+            if (detailRow.classList.contains('hidden')) {
+                detailRow.classList.remove('hidden');
+                if (icon) icon.style.transform = 'rotate(90deg)';
+            } else {
+                detailRow.classList.add('hidden');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            }
         }
 
         function alternarTodosHistoricosSae() {
@@ -2143,268 +1609,303 @@
             atualizarBotaoToggleAllSae();
         }
 
-        function toggleHistoricoSae(detailId, iconId) {
-            const detailRow = document.getElementById(detailId);
-            const icon = document.getElementById(iconId);
+        function atualizarBotaoToggleAllSae() {
+            const lbl = document.getElementById('lblToggleAllSae');
+            if (lbl) {
+                lbl.innerText = todosExpandidosSae ? "Recolher Todos Os Históricos" : "Expandir Todos Os Históricos";
+            }
+        }
 
-            if (detailRow) {
-                if (detailRow.classList.contains('hidden')) {
-                    detailRow.classList.remove('hidden');
-                    if (icon) icon.style.transform = 'rotate(90deg)';
+        function applyFiltersAndRender() {
+            if (!rawDatasetSmg12 || rawDatasetSmg12.length === 0) {
+                renderTableSmg12([]);
+                updateMetricsSmg12([]);
+                return;
+            }
+
+            const searchQuery = normalizeStr(document.getElementById('tableSearch')?.value || '');
+            const minIsvVal = parseFloat(document.getElementById('isvMinFilter')?.value) || 0;
+            const indConfig = industrias[currentIndustria] || { cnpjs: [], keywords: [] };
+
+            const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
+            const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+
+            const today = new Date();
+            const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
+            let filtered = rawDatasetSmg12.filter(item => {
+                if (currentIndustria !== 'TODAS') {
+                    const fornecedorStr = String(item['FORNECEDOR'] || '').replace(/\D/g, '');
+                    let matchCNPJ = false;
+                    if (cleanCnpjs.length > 0 && fornecedorStr.length > 0) {
+                        matchCNPJ = cleanCnpjs.some(cnpj => fornecedorStr.includes(cnpj) || cnpj.includes(fornecedorStr));
+                    }
+
+                    let matchKeyword = false;
+                    const isFornEmpty = !fornecedorStr || fornecedorStr === '0';
+                    if (isFornEmpty && keywords.length > 0) {
+                        const desc = String(item['DESCRICAO'] || '').toLowerCase();
+                        matchKeyword = keywords.some(kw => desc.includes(kw));
+                    }
+
+                    if (!matchCNPJ && !matchKeyword) return false;
+                }
+
+                if (isRupturaActive) {
+                    const entDate = parseDate(item['DT ULT ENT']);
+                    if (!entDate) return false;
+
+                    const vndDate = parseDate(item['DT ULT VND']);
+                    let isRuptura = false;
+                    if (vndDate) {
+                        const entTime = new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
+                        const vndTime = new Date(vndDate.getFullYear(), vndDate.getMonth(), vndDate.getDate()).getTime();
+                        isRuptura = vndTime < entTime;
+                    } else {
+                        isRuptura = true;
+                    }
+
+                    if (!isRuptura) return false;
+                    const diffMs = todayZero - new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
+                    item['ruptura'] = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+                    return true;
                 } else {
-                    detailRow.classList.add('hidden');
-                    if (icon) icon.style.transform = 'rotate(0deg)';
+                    const itemIsv = parseFloat(item['isv']) || 0;
+                    if (minIsvVal > 0 && itemIsv < minIsvVal) return false;
+                    return true;
+                }
+            });
+
+            if (searchQuery) {
+                filtered = filtered.filter(item =>
+                    normalizeStr(item['código']).includes(searchQuery) ||
+                    normalizeStr(item['DESCRICAO']).includes(searchQuery)
+                );
+            }
+
+            if (isRupturaActive) {
+                filtered.sort((a, b) => (b['ruptura'] || 0) - (a['ruptura'] || 0));
+            } else {
+                filtered.sort((a, b) => (b['isv'] || 0) - (a['isv'] || 0));
+            }
+
+            processedDatasetSmg12 = filtered;
+            renderTableSmg12(filtered);
+            updateMetricsSmg12(filtered);
+        }
+
+        function renderTableSmg12(data) {
+            const tbody = document.getElementById('tableBodySmg12');
+            tbody.innerHTML = '';
+
+            const countTxt = document.getElementById('txtTableCountSmg12');
+            if (countTxt) countTxt.textContent = `Exibindo ${data.length} registros para ${currentIndustria}`;
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="14" class="py-12 text-center text-slate-400">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
+                return;
+            }
+
+            const fmtNum = n => (n || 0).toLocaleString('pt-BR');
+
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+                const metricVal = isRupturaActive ? (item['ruptura'] || 0) : (item['isv'] || 0);
+
+                tr.innerHTML = `
+                    <td class="py-2 px-3 font-mono text-slate-900 font-medium">${item['código']}</td>
+                    <td class="py-2 px-3">${item['DIGITO']}</td>
+                    <td class="py-2 px-3 font-medium text-slate-800">${item['DESCRICAO']}</td>
+                    <td class="py-2 px-3">${item['emb']}</td>
+                    <td class="py-2 px-3 text-center">${item['LASTRO']}</td>
+                    <td class="py-2 px-3 text-center font-medium">${item['DT ULT ENT']}</td>
+                    <td class="py-2 px-3 text-center font-medium text-slate-500">${item['DT ULT VND']}</td>
+                    <td class="py-2 px-3 text-right">${fmtNum(item['QTD ULT ENT'])}</td>
+                    <td class="py-2 px-3 text-right font-bold bg-amber-50 text-amber-900 border-x border-amber-200/50">${fmtNum(item['ped. pendente'])}</td>
+                    <td class="py-2 px-3 text-right">${fmtNum(item['estoque cx'])}</td>
+                    <td class="py-2 px-3 text-right">${fmtNum(item['estoque und'])}</td>
+                    <td class="py-2 px-3 text-right">${fmtNum(item['vnd 30dias cx'])}</td>
+                    <td class="py-2 px-3 text-right">${fmtNum(item['bloq cx'])}</td>
+                    <td class="py-2 px-3 text-right font-bold text-rose-700 bg-rose-50 border-l border-rose-200/60">${fmtNum(metricVal)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateMetricsSmg12(data) {
+            let sumEstoqueCx = 0, sumPedPendente = 0, sumMetric = 0;
+            data.forEach(item => {
+                sumEstoqueCx += item['estoque cx'] || 0;
+                sumPedPendente += item['ped. pendente'] || 0;
+                sumMetric += isRupturaActive ? (item['ruptura'] || 0) : (item['isv'] || 0);
+            });
+
+            const avgMetric = data.length > 0 ? (sumMetric / data.length).toFixed(1) : 0;
+            document.getElementById('kpiTotalSKUs').textContent = data.length.toLocaleString('pt-BR');
+            document.getElementById('kpiEstoqueCx').textContent = sumEstoqueCx.toLocaleString('pt-BR');
+            document.getElementById('kpiPedPendente').textContent = sumPedPendente.toLocaleString('pt-BR');
+            document.getElementById('kpiAvgISV').textContent = avgMetric;
+
+            const printBtn = document.getElementById('btnPrintSelection');
+            const lblPrintBtn = document.getElementById('lblPrintBtn');
+            const selectedCount = selectedIndustriasForPrint ? selectedIndustriasForPrint.size : 0;
+
+            if (printBtn) {
+                printBtn.disabled = !rawDatasetSmg12 || rawDatasetSmg12.length === 0 || selectedCount === 0;
+            }
+            if (lblPrintBtn) {
+                if (selectedCount === 0) {
+                    lblPrintBtn.textContent = 'Imprimir Selecionadas (0)';
+                } else {
+                    lblPrintBtn.textContent = `Imprimir Selecionadas (${selectedCount})`;
                 }
             }
         }
 
-        function renderizarTabelaSae(dados) {
-            const tbody = document.getElementById('tableBodySae60');
-            if (!tbody) return;
-            tbody.innerHTML = '';
+        function toggleRupturaMode() {
+            isRupturaActive = !isRupturaActive;
+            const btn = document.getElementById('btnToggleRuptura');
+            const thHeader = document.getElementById('thMetricHeader');
 
-            if (!dados || dados.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-slate-400">Nenhum registro encontrado para a categoria selecionada.</td></tr>`;
-                return;
+            if (isRupturaActive) {
+                btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-600 bg-rose-600 text-white shadow-sm flex items-center gap-1.5";
+                thHeader.textContent = "RUPTURA";
+            } else {
+                btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm flex items-center gap-1.5";
+                thHeader.textContent = "ISV";
             }
+            applyFiltersAndRender();
+        }
 
-            dados.forEach((row, index) => {
-                const detailId = `detailSae-${index}`;
-                const bgRow = index % 2 === 0 ? 'bg-white' : 'bg-slate-50/80';
-                const badgeInd = row.temIndustria 
-                    ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800" title="Indústria: ${row.industria}">S</span>`
-                    : `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">N</span>`;
+        function exportarExcelSmg12() {
+            if (!processedDatasetSmg12 || processedDatasetSmg12.length === 0) return;
+            const ws = XLSX.utils.json_to_sheet(processedDatasetSmg12);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Relatório smg12");
+            XLSX.writeFile(wb, `Relatorio_smg12_${currentIndustria}.xlsx`);
+        }
 
-                const tr = document.createElement('tr');
-                tr.className = `${bgRow} hover:bg-amber-50/70 transition cursor-pointer border-b border-slate-200`;
-                tr.onclick = () => toggleHistoricoSae(detailId, `iconSae-${index}`);
+        function exportarCSVSmg12() {
+            if (!processedDatasetSmg12 || processedDatasetSmg12.length === 0) return;
+            const csv = Papa.unparse(processedDatasetSmg12, { delimiter: ";" });
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `Relatorio_smg12_${currentIndustria}.csv`;
+            link.click();
+        }
 
-                tr.innerHTML = `
-                    <td class="p-3 text-center text-slate-400 font-bold no-print">
-                        <i class="fa-solid fa-chevron-right transition-transform duration-200" id="iconSae-${index}"></i>
-                    </td>
-                    <td class="p-3 text-center">${badgeInd}</td>
-                    <td class="p-3 font-semibold text-slate-700 font-mono">${row.codigo}</td>
-                    <td class="p-3 font-medium text-slate-900">${row.descricao}</td>
-                    <td class="p-3 text-slate-600 font-medium">${row.embalagem}</td>
-                    <td class="p-3 text-center">${row.dataEntrada}</td>
-                    <td class="p-3 text-center font-bold text-amber-800">${row.dataVencimento}</td>
-                    <td class="p-3 text-right font-semibold text-indigo-700 bg-indigo-50/50">${row.estAtual} CX</td>
-                    <td class="p-3 text-right font-semibold text-slate-800">${row.estoqueRestanteEmb1} CX</td>
-                    <td class="p-3 text-right font-semibold text-brand-600">${row.vnd30Emb1} CX</td>
-                    <td class="p-3 text-center text-slate-600">${row.diasSemVenda} d</td>
-                    <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold border inline-block whitespace-nowrap ${row.badgeColor}">${row.statusGiro}</span></td>
-                `;
-                tbody.appendChild(tr);
+        function exportarExcelSae() {
+            if (!globalResultadoProcessadoSae || globalResultadoProcessadoSae.length === 0) return;
+            let dados = [];
+            if (abaAtualSae === 'este_mes') dados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
+            else if (abaAtualSae === 'mes_vem') dados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
+            else dados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
 
-                const historico = gruposSKUGlobalSae[row.codigo] || [];
-                const detailTr = document.createElement('tr');
-                detailTr.id = detailId;
-                detailTr.className = "hidden detail-row-sae bg-slate-100/80";
-
-                let historicoHTML = `
-                    <td colspan="12" class="px-3 py-2">
-                        <div class="bg-slate-50 border border-slate-300 rounded p-2">
-                            <div class="text-[10px] font-bold text-slate-600 uppercase mb-1 no-print-text">
-                                Histórico de Entradas Originais (${historico.length})
-                            </div>
-                            <table class="w-full text-[10px] text-left border-collapse">
-                                <thead class="bg-slate-200 text-slate-700 font-semibold uppercase">
-                                    <tr>
-                                        <th class="p-1 border border-slate-300">Entrada</th>
-                                        <th class="p-1 border border-slate-300">Vencimento</th>
-                                        <th class="p-1 border border-slate-300">Qtd EMB1</th>
-                                        <th class="p-1 border border-slate-300">Qtd EMB9</th>
-                                        <th class="p-1 border border-slate-300">Est.Líq 1</th>
-                                        <th class="p-1 border border-slate-300">Est.Líq 9</th>
-                                        <th class="p-1 border border-slate-300">Vnd 30d</th>
-                                        <th class="p-1 border border-slate-300">Vida</th>
-                                        <th class="p-1 border border-slate-300">Valor Venc.</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-200">
-                `;
-
-                historico.forEach(h => {
-                    historicoHTML += `
-                        <tr class="hover:bg-white">
-                            <td class="p-1 border border-slate-200 font-medium">${formatDateDisplay(h._dtEntrada)}</td>
-                            <td class="p-1 border border-slate-200 font-medium text-amber-700">${formatDateDisplay(h._dtVenc)}</td>
-                            <td class="p-1 border border-slate-200">${h._qEmb1}</td>
-                            <td class="p-1 border border-slate-200">${h._qEmb9}</td>
-                            <td class="p-1 border border-slate-200">${h._estLiqEmb1}</td>
-                            <td class="p-1 border border-slate-200">${h._estLiqEmb9}</td>
-                            <td class="p-1 border border-slate-200 text-brand-600 font-medium">${h._vnd30Emb1}</td>
-                            <td class="p-1 border border-slate-200">${h._tempoVida} d</td>
-                            <td class="p-1 border border-slate-200 font-semibold">R$ ${h._valorVencimento.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                        </tr>
-                    `;
-                });
-
-                historicoHTML += `
-                                </tbody>
-                            </table>
-                        </div>
-                    </td>
-                `;
-
-                detailTr.innerHTML = historicoHTML;
-                tbody.appendChild(detailTr);
-            });
+            const ws = XLSX.utils.json_to_sheet(dados);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Vencimentos sae60");
+            XLSX.writeFile(wb, `Vencimentos_sae60_${abaAtualSae}.xlsx`);
         }
 
         function exportarCSVSae(tipo) {
             if (!globalResultadoProcessadoSae || globalResultadoProcessadoSae.length === 0) return;
+            let dados = [];
+            if (tipo === 'este_mes') dados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
+            else if (tipo === 'mes_vem') dados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
+            else dados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
 
-            let dadosFiltrados = [];
-            let nameFile = "relatorio_vencimentos.csv";
-
-            if (tipo === 'este_mes') {
-                dadosFiltrados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
-                nameFile = "vencimentos_deste_mes.csv";
-            } else if (tipo === 'mes_vem') {
-                dadosFiltrados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
-                nameFile = "vencimentos_mes_seguinte.csv";
-            } else if (tipo === 'erros') {
-                dadosFiltrados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
-                nameFile = "relatorio_erros_lancamento.csv";
-            }
-
-            if (currentIndustria && currentIndustria !== 'TODAS' && industrias[currentIndustria]) {
-                dadosFiltrados = dadosFiltrados.filter(r => r.industria === currentIndustria);
-            }
-
-            dadosFiltrados.sort((a, b) => b.valorVencimento - a.valorVencimento);
-
-            const csvData = dadosFiltrados.map(r => ({
-                "INDÚSTRIA CADASTRA?": r.temIndustria ? "SIM" : "NÃO",
-                "INDÚSTRIA NOME": r.industria || "",
-                "CÓDIGO": r.codigo,
-                "DESCRIÇÃO MERCADORIA": r.descricao,
-                "EMBALAGEM": r.embalagem,
-                "DATA ENTRADA": r.dataEntrada,
-                "DATA VENCIMENTO": r.dataVencimento,
-                "ESTOQUE ATUAL (EST. LÍQ. EMB1)": r.estAtual,
-                "VALOR VENCIMENTO": r.valorVencimento,
-                "TEMPO DE VIDA (DIAS)": r.tempoVida,
-                "QTDE ENTRADA EMB1 (CX)": r.qtdeEntradaEmb1,
-                "ESTOQUE REMANESCENTE EMB1 (CX)": r.estoqueRestanteEmb1,
-                "VND. 30 DIAS EMB1": r.vnd30Emb1,
-                "DIAS SEM VENDA": r.diasSemVenda,
-                "MÉDIA DE VENDA ATÉ VENCIMENTO": r.statusGiro,
-                "QTDE ENTRADA EMB9 (UN)": r.qtdeEntradaEmb9,
-                "ESTOQUE REMANESCENTE EMB9 (UN)": r.estoqueRestanteEmb9,
-                "ESTOQUE LÍQUIDO TOTAL SKU EMB1": r.estLiqTotalEmb1,
-                "ESTOQUE LÍQUIDO TOTAL SKU EMB9": r.estLiqTotalEmb9,
-                "ERRO LANÇAMENTO VENCIMENTO": r.erroLancamento,
-                "MOTIVO DO ALERTA": r.motivoErro
-            }));
-
-            const csv = Papa.unparse(csvData, { delimiter: ";" });
+            const csv = Papa.unparse(dados, { delimiter: ";" });
             const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
-            link.setAttribute("href", url);
-            link.setAttribute("download", nameFile);
-            document.body.appendChild(link);
+            link.href = URL.createObjectURL(blob);
+            link.download = `Vencimentos_sae60_${tipo}.csv`;
             link.click();
-            document.body.removeChild(link);
+        }
+
+        function imprimirTabelaSae() {
+            window.print();
         }
 
         function imprimirIndustriasComVencimento() {
             if (!globalResultadoProcessadoSae || globalResultadoProcessadoSae.length === 0) {
-                alert("Nenhum relatório sae60 carregado para realizar a impressão.");
-                return;
-            }
-
-            let tabTitle = "";
-            let activeSaeItems = [];
-
-            if (abaAtualSae === 'este_mes') {
-                tabTitle = "VENCIMENTOS DESTE MÊS";
-                activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
-            } else if (abaAtualSae === 'mes_vem') {
-                tabTitle = "VENCIMENTOS DO MÊS SEGUINTE";
-                activeSaeItems = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
-            } else if (abaAtualSae === 'erros') {
-                tabTitle = "RELATÓRIO DE ERROS DE LANÇAMENTO";
-                activeSaeItems = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
-            }
-
-            const itemsByInd = {};
-            activeSaeItems.forEach(r => {
-                if (r.temIndustria && r.industria) {
-                    if (!itemsByInd[r.industria]) itemsByInd[r.industria] = [];
-                    itemsByInd[r.industria].push(r);
-                }
-            });
-
-            const indNames = Object.keys(itemsByInd);
-
-            if (indNames.length === 0) {
-                alert(`Nenhuma indústria cadastrada possui itens com vencimento na aba "${tabTitle}".`);
+                alert("Nenhum dado de vencimentos para imprimir.");
                 return;
             }
 
             const printContainer = document.getElementById('printArea');
-            const dateStr = new Date().toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            const ROWS_PER_PAGE = 20;
             let fullHtml = '';
 
-            indNames.forEach(indName => {
-                const indData = itemsByInd[indName];
-                indData.sort((a, b) => b.valorVencimento - a.valorVencimento);
+            const saeCounts = getSaeCountsPerInd();
+            const dateStr = new Date().toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-                const totalPages = Math.ceil(indData.length / ROWS_PER_PAGE) || 1;
+            Object.keys(industrias).forEach(indName => {
+                // APENAS AS INDÚSTRIAS SELECIONADAS (COM CHECKBOX MARCADO)
+                if (!selectedIndustriasForPrint.has(indName)) return;
 
-                for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
-                    const pageNum = pageIdx + 1;
-                    const startIdx = pageIdx * ROWS_PER_PAGE;
-                    const pageData = indData.slice(startIdx, startIdx + ROWS_PER_PAGE);
+                const count = saeCounts[indName]?.[abaAtualSae] || 0;
+                if (count > 0) {
+                    const indConfig = industrias[indName] || { cnpjs: [], keywords: [] };
+                    const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
+                    const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+
+                    let indData = globalResultadoProcessadoSae.filter(r => {
+                        if (abaAtualSae === 'este_mes' && (!r.ehEsteMes || r.estoqueRestanteEmb1 <= 0)) return false;
+                        if (abaAtualSae === 'mes_vem' && (!r.ehMesVem || r.estoqueRestanteEmb1 <= 0)) return false;
+                        if (abaAtualSae === 'erros' && r.erroLancamento !== "SIM") return false;
+
+                        if (r.skuFornecedor) {
+                            const fornClean = r.skuFornecedor.replace(/\D/g, '');
+                            if (cleanCnpjs.some(c => fornClean.includes(c) || c.includes(fornClean))) return true;
+                        }
+                        if (keywords.length > 0) {
+                            const desc = String(r.descricao).toLowerCase();
+                            if (keywords.some(kw => desc.includes(kw))) return true;
+                        }
+                        return r.indPertencente === indName;
+                    });
+
+                    if (indData.length === 0) return;
 
                     let rowsHtml = '';
-                    pageData.forEach(item => {
+                    indData.forEach(item => {
                         rowsHtml += `
                             <tr>
-                                <td style="text-align:center; font-weight:bold;">S</td>
                                 <td style="font-family: monospace;">${item.codigo}</td>
-                                <td style="font-weight: 500;">${item.descricao}</td>
+                                <td>${item.descricao}</td>
                                 <td>${item.embalagem}</td>
-                                <td style="text-align:center">${item.dataEntrada}</td>
-                                <td style="text-align:center; font-weight:bold;" class="print-highlight-amber">${item.dataVencimento}</td>
-                                <td style="text-align:right; font-weight:bold;">${item.estAtual} CX</td>
-                                <td style="text-align:right; font-weight:bold;">${item.estoqueRestanteEmb1} CX</td>
-                                <td style="text-align:right">${item.vnd30Emb1} CX</td>
-                                <td style="text-align:center">${item.diasSemVenda} d</td>
-                                <td style="text-align:center;"><strong>${item.statusGiro}</strong></td>
+                                <td style="text-align:center;">${item.dataEntrada}</td>
+                                <td style="text-align:center;" class="print-highlight-amber">${item.dataVencimento}</td>
+                                <td style="text-align:right;">${item.estLiqAtual} CX</td>
+                                <td style="text-align:right;" class="print-highlight-amber">${item.estoqueRestanteEmb1} CX</td>
+                                <td style="text-align:right;">${item.vnd30Emb1} CX</td>
+                                <td style="text-align:center;">${item.diasSemVenda} d</td>
+                                <td style="text-align:center;">${item.statusGiro}</td>
                             </tr>
                         `;
                     });
+
+                    let labelTab = "DESTE MÊS";
+                    if (abaAtualSae === 'mes_vem') labelTab = "MÊS QUE VEM";
+                    if (abaAtualSae === 'erros') labelTab = "ERROS DE LANÇAMENTO";
 
                     fullHtml += `
                         <div class="industry-page-block">
                             <table class="print-table">
                                 <thead>
                                     <tr class="print-header-row">
-                                        <th colspan="11" class="print-header-cell">
+                                        <th colspan="10" class="print-header-cell">
                                             <div class="print-header-content">
-                                                <div class="print-title">INDÚSTRIA ${indName.toUpperCase()} - ${tabTitle} - FOLHA ${pageNum} DE ${totalPages}</div>
+                                                <div class="print-title">INDÚSTRIA ${indName.toUpperCase()} - VENCIMENTOS (${labelTab})</div>
                                                 <div class="print-meta-info">Emitido em: ${dateStr} | Total SKUs: ${indData.length}</div>
                                             </div>
                                         </th>
                                     </tr>
                                     <tr class="print-columns-row">
-                                        <th style="text-align:center">IND?</th>
-                                        <th>Código</th>
-                                        <th>Descrição da Mercadoria</th>
-                                        <th>Embalagem</th>
-                                        <th>Data Entrada</th>
-                                        <th>Data Vencimento</th>
-                                        <th style="text-align:right">EST ATUAL</th>
-                                        <th style="text-align:right">Saldo EMB1</th>
-                                        <th style="text-align:right">Vnd 30d</th>
-                                        <th style="text-align:center">Dias s/ Vnd</th>
-                                        <th style="text-align:center">Giro / Venda</th>
+                                        <th>Código</th><th>Descrição</th><th>Emb</th><th>Dt Ent</th><th>Dt Venc</th>
+                                        <style="text-align:right">Est Atual</style><th style="text-align:right">Saldo Venc (CX)</th>
+                                        <th style="text-align:right">Vnd 30d</th><th style="text-align:center">Dias s/ Vnd</th>
+                                        <th style="text-align:center">Status Giro</th>
                                     </tr>
                                 </thead>
                                 <tbody>${rowsHtml}</tbody>
@@ -2414,137 +1915,366 @@
                 }
             });
 
-            printContainer.innerHTML = fullHtml;
-
-            const originalTitle = document.title;
-            document.title = "";
-            window.print();
-            setTimeout(() => { document.title = originalTitle; }, 500);
-        }
-
-        function imprimirTabelaSae() {
-            if (!globalResultadoProcessadoSae || globalResultadoProcessadoSae.length === 0) {
-                alert("Carregue o relatório sae60 para imprimir a tabela de vencimentos.");
+            if (!fullHtml) {
+                alert("Nenhuma indústria selecionada possui vencimentos para impressão nesta aba.");
                 return;
             }
 
-            let dadosParaExibir = [];
-            let tabTitle = "";
+            printContainer.innerHTML = fullHtml;
+            window.print();
+        }
 
-            if (abaAtualSae === 'este_mes') {
-                tabTitle = "VENCIMENTOS DESTE MÊS";
-                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
-            } else if (abaAtualSae === 'mes_vem') {
-                tabTitle = "VENCIMENTOS DO MÊS SEGUINTE";
-                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
-            } else if (abaAtualSae === 'erros') {
-                tabTitle = "RELATÓRIO DE ERROS DE LANÇAMENTO";
-                dadosParaExibir = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
+        function imprimirSelecionadas() {
+            if (!rawDatasetSmg12 || rawDatasetSmg12.length === 0) {
+                alert("Nenhum relatório smg12 carregado para realizar a impressão.");
+                return;
             }
 
-            if (currentIndustria && currentIndustria !== 'TODAS' && industrias[currentIndustria]) {
-                dadosParaExibir = dadosParaExibir.filter(r => r.industria === currentIndustria);
+            if (!selectedIndustriasForPrint || selectedIndustriasForPrint.size === 0) {
+                alert("Selecione ao menos uma indústria na caixa de seleção para imprimir.");
+                return;
             }
-
-            dadosParaExibir.sort((a, b) => b.valorVencimento - a.valorVencimento);
 
             const printContainer = document.getElementById('printArea');
-            const dateStr = new Date().toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            const ROWS_PER_PAGE = 18;
-            const totalPages = Math.ceil(dadosParaExibir.length / ROWS_PER_PAGE) || 1;
-
             let fullHtml = '';
 
-            for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
-                const pageNum = pageIdx + 1;
-                const startIdx = pageIdx * ROWS_PER_PAGE;
-                const pageData = dadosParaExibir.slice(startIdx, startIdx + ROWS_PER_PAGE);
+            const searchQuery = normalizeStr(document.getElementById('tableSearch')?.value || '');
+            const minIsvVal = parseFloat(document.getElementById('isvMinFilter')?.value) || 0;
+            const today = new Date();
+            const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 
-                let rowsHtml = '';
-                pageData.forEach(item => {
-                    const badgeInd = item.temIndustria ? "S" : "N";
+            const selectedList = Array.from(selectedIndustriasForPrint);
 
-                    rowsHtml += `
-                        <tr>
-                            <td style="text-align:center; font-weight:bold;">${badgeInd}</td>
-                            <td style="font-family: monospace;">${item.codigo}</td>
-                            <td style="font-weight: 500;">${item.descricao}</td>
-                            <td>${item.embalagem}</td>
-                            <td style="text-align:center">${item.dataEntrada}</td>
-                            <td style="text-align:center; font-weight:bold;" class="print-highlight-amber">${item.dataVencimento}</td>
-                            <td style="text-align:right; font-weight:bold;">${item.estAtual} CX</td>
-                            <td style="text-align:right; font-weight:bold;">${item.estoqueRestanteEmb1} CX</td>
-                            <td style="text-align:right">${item.vnd30Emb1} CX</td>
-                            <td style="text-align:center">${item.diasSemVenda} d</td>
-                            <td style="text-align:center;"><strong>${item.statusGiro}</strong></td>
-                        </tr>
-                    `;
+            selectedList.forEach(indName => {
+                const indConfig = industrias[indName] || { cnpjs: [], keywords: [] };
+                const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
+                const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
 
-                    if (todosExpandidosSae) {
-                        const historico = gruposSKUGlobalSae[item.codigo] || [];
-                        let histHtml = '';
-                        historico.forEach(h => {
-                            histHtml += `
-                                <tr>
-                                    <td>Entrada: ${formatDateDisplay(h._dtEntrada)}</td>
-                                    <td>Venc: ${formatDateDisplay(h._dtVenc)}</td>
-                                    <td>Qtd EMB1: ${h._qEmb1}</td>
-                                    <td>Est.Líq: ${h._estLiqEmb1}</td>
-                                    <td>Vnd 30d: ${h._vnd30Emb1}</td>
-                                    <td>Valor: R$ ${h._valorVencimento.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                                </tr>
-                            `;
-                        });
-                        rowsHtml += `
-                            <tr>
-                                <td colspan="11" style="background-color: #f8fafc; padding: 4px 8px;">
-                                    <div style="font-size: 7pt; font-weight: bold; margin-bottom: 2px;">Histórico Lotes (${historico.length}):</div>
-                                    <table style="width:100%; font-size: 6.5pt; border-collapse: collapse;"><tbody>${histHtml}</tbody></table>
-                                </td>
-                            </tr>
-                        `;
+                let filtered = rawDatasetSmg12.filter(item => {
+                    // Match industry
+                    const fornecedorStr = String(item['FORNECEDOR'] || '').replace(/\D/g, '');
+                    let matchCNPJ = false;
+                    if (cleanCnpjs.length > 0 && fornecedorStr.length > 0) {
+                        matchCNPJ = cleanCnpjs.some(cnpj => fornecedorStr.includes(cnpj) || cnpj.includes(fornecedorStr));
+                    }
+
+                    let matchKeyword = false;
+                    const isFornEmpty = !fornecedorStr || fornecedorStr === '0';
+                    if (isFornEmpty && keywords.length > 0) {
+                        const desc = String(item['DESCRICAO'] || '').toLowerCase();
+                        matchKeyword = keywords.some(kw => desc.includes(kw));
+                    }
+
+                    if (!matchCNPJ && !matchKeyword) return false;
+
+                    // Match Ruptura or ISV filter
+                    if (isRupturaActive) {
+                        const entDate = parseDate(item['DT ULT ENT']);
+                        if (!entDate) return false;
+
+                        const vndDate = parseDate(item['DT ULT VND']);
+                        let isRuptura = false;
+                        if (vndDate) {
+                            const entTime = new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
+                            const vndTime = new Date(vndDate.getFullYear(), vndDate.getMonth(), vndDate.getDate()).getTime();
+                            isRuptura = vndTime < entTime;
+                        } else {
+                            isRuptura = true;
+                        }
+
+                        if (!isRuptura) return false;
+                        const diffMs = todayZero - new Date(entDate.getFullYear(), entDate.getMonth(), entDate.getDate()).getTime();
+                        item['ruptura'] = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+                        return true;
+                    } else {
+                        const itemIsv = parseFloat(item['isv']) || 0;
+                        if (minIsvVal > 0 && itemIsv < minIsvVal) return false;
+                        return true;
                     }
                 });
 
-                fullHtml += `
-                    <div class="industry-page-block">
-                        <table class="print-table">
-                            <thead>
-                                <tr class="print-header-row">
-                                    <th colspan="11" class="print-header-cell">
-                                        <div class="print-header-content">
-                                            <div class="print-title">VENCIMENTOS FIFO (SAE60) - ${tabTitle} - FOLHA ${pageNum}</div>
-                                            <div class="print-meta-info">Emitido em: ${dateStr} | Total Registros: ${dadosParaExibir.length}</div>
-                                        </div>
-                                    </th>
-                                </tr>
-                                <tr class="print-columns-row">
-                                    <th style="text-align:center">IND?</th>
-                                    <th>Código</th>
-                                    <th>Descrição da Mercadoria</th>
-                                    <th>Embalagem</th>
-                                    <th>Data Entrada</th>
-                                    <th>Data Vencimento</th>
-                                    <th style="text-align:right">EST ATUAL</th>
-                                    <th style="text-align:right">Saldo EMB1</th>
-                                    <th style="text-align:right">Vnd 30d</th>
-                                    <th style="text-align:center">Dias s/ Vnd</th>
-                                    <th style="text-align:center">Giro / Venda</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rowsHtml}</tbody>
-                        </table>
-                    </div>
-                `;
+                if (searchQuery) {
+                    filtered = filtered.filter(item =>
+                        normalizeStr(item['código']).includes(searchQuery) ||
+                        normalizeStr(item['DESCRICAO']).includes(searchQuery)
+                    );
+                }
+
+                if (isRupturaActive) {
+                    filtered.sort((a, b) => (b['ruptura'] || 0) - (a['ruptura'] || 0));
+                } else {
+                    filtered.sort((a, b) => (b['isv'] || 0) - (a['isv'] || 0));
+                }
+
+                if (filtered.length > 0) {
+                    fullHtml += generatePrintHTMLForSmg12Industry(indName, filtered);
+                }
+            });
+
+            if (!fullHtml) {
+                alert("Nenhum produto encontrado para as indústrias selecionadas com os filtros atuais (pesquisa/ISV).");
+                return;
             }
 
             printContainer.innerHTML = fullHtml;
-
-            const originalTitle = document.title;
-            document.title = "";
             window.print();
-            setTimeout(() => { document.title = originalTitle; }, 500);
         }
+
+        function generatePrintHTMLForSmg12Industry(indName, data) {
+            const dateStr = new Date().toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            const metricHeader = isRupturaActive ? "RUPTURA" : "ISV";
+            const titleMode = isRupturaActive ? "RUPTURA OPERACIONAL" : "ESTOQUE BÍBLIA";
+
+            let rowsHtml = '';
+            data.forEach(item => {
+                const metricVal = isRupturaActive ? (item['ruptura'] || 0) : (item['isv'] || 0);
+                rowsHtml += `
+                    <tr>
+                        <td style="font-family: monospace;">${item['código']}</td>
+                        <td style="text-align:center;">${item['DIGITO']}</td>
+                        <td>${item['DESCRICAO']}</td>
+                        <td>${item['emb']}</td>
+                        <td style="text-align:center;">${item['LASTRO']}</td>
+                        <td style="text-align:center;">${item['DT ULT ENT']}</td>
+                        <td style="text-align:center;">${item['DT ULT VND']}</td>
+                        <td style="text-align:right;">${(item['QTD ULT ENT'] || 0).toLocaleString('pt-BR')}</td>
+                        <td style="text-align:right;" class="print-highlight-amber">${(item['ped. pendente'] || 0).toLocaleString('pt-BR')}</td>
+                        <td style="text-align:right;">${(item['estoque cx'] || 0).toLocaleString('pt-BR')}</td>
+                        <td style="text-align:right;">${(item['estoque und'] || 0).toLocaleString('pt-BR')}</td>
+                        <td style="text-align:right;">${(item['vnd 30dias cx'] || 0).toLocaleString('pt-BR')}</td>
+                        <td style="text-align:right;">${(item['bloq cx'] || 0).toLocaleString('pt-BR')}</td>
+                        <td style="text-align:right;" class="print-highlight-rose">${(metricVal || 0).toLocaleString('pt-BR')}</td>
+                    </tr>
+                `;
+            });
+
+            return `
+                <div class="industry-page-block">
+                    <table class="print-table">
+                        <thead>
+                            <tr class="print-header-row">
+                                <th colspan="14" class="print-header-cell">
+                                    <div class="print-header-content">
+                                        <div class="print-title">RELATÓRIO DE ${titleMode} - ${indName.toUpperCase()}</div>
+                                        <div class="print-meta-info">Emitido em: ${dateStr} | Total SKUs: ${data.length}</div>
+                                    </div>
+                                </th>
+                            </tr>
+                            <tr class="print-columns-row">
+                                <th>Código</th><th>Dígito</th><th>Descrição</th><th>Emb</th><th>Lastro</th>
+                                <th>Dt Ult Ent</th><th>Dt Ult Vnd</th><th style="text-align:right">Qtd Ult Ent</th>
+                                <th style="text-align:right">Ped. Pendente</th><th style="text-align:right">Estoque Cx</th>
+                                <th style="text-align:right">Estoque Und</th><th style="text-align:right">Vnd 30d</th>
+                                <th style="text-align:right">Bloq Cx</th><th style="text-align:right">${metricHeader}</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function openModalSupabase() { document.getElementById('modalSupabase').classList.remove('hidden'); }
+        function closeModalSupabase() { document.getElementById('modalSupabase').classList.add('hidden'); }
+
+        function saveSupabaseConfig(e) {
+            e.preventDefault();
+            const url = document.getElementById('spUrl').value.trim();
+            const key = document.getElementById('spKey').value.trim();
+            localStorage.setItem('sp_url', url);
+            localStorage.setItem('sp_key', key);
+            initSupabaseFromStorageOrDefault();
+            closeModalSupabase();
+        }
+
+        function resetDefaultSupabaseCredentials() {
+            document.getElementById('spUrl').value = DEFAULT_SUPABASE_URL;
+            document.getElementById('spKey').value = DEFAULT_SUPABASE_KEY;
+            localStorage.removeItem('sp_url');
+            localStorage.removeItem('sp_key');
+            initSupabaseFromStorageOrDefault();
+        }
+
+        function updateSupabaseStatus(connected, txt) {
+            isSupabaseConnected = connected;
+            const dot = document.getElementById('supabaseDot');
+            const label = document.getElementById('supabaseStatusTxt');
+            if (label) label.textContent = txt;
+            if (dot) dot.className = connected ? "w-1.5 h-1.5 rounded-full bg-emerald-400" : "w-1.5 h-1.5 rounded-full bg-rose-500";
+        }
+
+        function initSupabaseFromStorageOrDefault() {
+            const url = localStorage.getItem('sp_url') || DEFAULT_SUPABASE_URL;
+            const key = localStorage.getItem('sp_key') || DEFAULT_SUPABASE_KEY;
+            document.getElementById('spUrl').value = url;
+            document.getElementById('spKey').value = key;
+
+            try {
+                if (window.supabase && typeof window.supabase.createClient === 'function') {
+                    supabaseClient = window.supabase.createClient(url, key);
+                    updateSupabaseStatus(true, "Conectado");
+                }
+            } catch (err) {
+                updateSupabaseStatus(false, "Erro Conexão");
+            }
+        }
+
+        async function fetchIndustriasFromSupabaseOrLocal() {
+            let loaded = false;
+            if (supabaseClient) {
+                try {
+                    const { data, error } = await supabaseClient.from('industrias').select('*');
+                    if (!error && data && data.length > 0) {
+                        const cloudInds = {};
+                        data.forEach(item => {
+                            cloudInds[item.nome] = {
+                                cnpjs: Array.isArray(item.cnpjs) ? item.cnpjs : (item.cnpjs ? item.cnpjs.split(',') : []),
+                                keywords: Array.isArray(item.keywords) ? item.keywords : (item.keywords ? item.keywords.split(',') : []),
+                                tag: item.tag || ''
+                            };
+                        });
+                        industrias = cloudInds;
+                        localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
+                        loaded = true;
+                        updateSupabaseStatus(true, "Sincronizado");
+                    }
+                } catch (e) {}
+            }
+
+            if (!loaded) {
+                const cached = localStorage.getItem('local_industrias_cache');
+                if (cached) {
+                    try { industrias = JSON.parse(cached); } catch (e) {}
+                }
+            }
+
+            renderIndustriesHeader();
+        }
+
+        function openModalIndustria(name = null) {
+            const modal = document.getElementById('modalIndustria');
+            const title = document.getElementById('modalTitle');
+            const btnDel = document.getElementById('btnDeleteInd');
+
+            if (name && industrias[name]) {
+                title.innerHTML = `<i class="fa-solid fa-industry text-brand-500"></i> Editar Indústria`;
+                document.getElementById('indOriginalName').value = name;
+                document.getElementById('indNome').value = name;
+                document.getElementById('indCnpjs').value = (industrias[name].cnpjs || []).join(', ');
+                document.getElementById('indKeywords').value = (industrias[name].keywords || []).join(', ');
+                document.getElementById('indTag').value = industrias[name].tag || '';
+                btnDel.classList.remove('hidden');
+            } else {
+                title.innerHTML = `<i class="fa-solid fa-industry text-brand-500"></i> Cadastrar Indústria`;
+                document.getElementById('indOriginalName').value = '';
+                document.getElementById('indNome').value = '';
+                document.getElementById('indCnpjs').value = '';
+                document.getElementById('indKeywords').value = '';
+                document.getElementById('indTag').value = '';
+                btnDel.classList.add('hidden');
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function closeModalIndustria() { document.getElementById('modalIndustria').classList.add('hidden'); }
+
+        async function saveIndustria(e) {
+            e.preventDefault();
+            const oldName = document.getElementById('indOriginalName').value.trim();
+            const nome = document.getElementById('indNome').value.trim();
+            const cnpjs = document.getElementById('indCnpjs').value.split(',').map(s => s.trim()).filter(Boolean);
+            const keywords = document.getElementById('indKeywords').value.split(',').map(s => s.trim()).filter(Boolean);
+            const tag = document.getElementById('indTag').value.trim();
+
+            if (!nome) return;
+
+            if (oldName && oldName !== nome) {
+                delete industrias[oldName];
+                selectedIndustriasForPrint.delete(oldName);
+            }
+
+            industrias[nome] = { cnpjs, keywords, tag };
+            selectedIndustriasForPrint.add(nome);
+            localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
+
+            if (supabaseClient) {
+                try {
+                    if (oldName && oldName !== nome) {
+                        await supabaseClient.from('industrias').delete().eq('nome', oldName);
+                    }
+                    await supabaseClient.from('industrias').upsert({
+                        nome: nome,
+                        cnpjs: cnpjs,
+                        keywords: keywords,
+                        tag: tag
+                    }, { onConflict: 'nome' });
+                } catch (err) {}
+            }
+
+            closeModalIndustria();
+            renderIndustriesHeader();
+            if (currentTab === 'smg12') applyFiltersAndRender();
+            else alternarAbaSae(abaAtualSae);
+        }
+
+        async function deleteCurrentIndustria() {
+            const oldName = document.getElementById('indOriginalName').value.trim();
+            if (!oldName || !industrias[oldName]) return;
+
+            delete industrias[oldName];
+            selectedIndustriasForPrint.delete(oldName);
+            localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
+
+            if (supabaseClient) {
+                try { await supabaseClient.from('industrias').delete().eq('nome', oldName); } catch (e) {}
+            }
+
+            closeModalIndustria();
+            renderIndustriesHeader();
+        }
+
+        function openModalIndustriaLote() { document.getElementById('modalIndustriaLote').classList.remove('hidden'); }
+        function closeModalIndustriaLote() { document.getElementById('modalIndustriaLote').classList.add('hidden'); }
+
+        async function saveIndustriasLote(e) {
+            e.preventDefault();
+            const input = document.getElementById('loteDataInput').value.trim();
+            if (!input) return;
+
+            const lines = input.split('\n');
+            let count = 0;
+
+            lines.forEach(line => {
+                const cols = line.split('\t').map(s => s.trim());
+                if (cols.length >= 2 && cols[1]) {
+                    const cnpj = cols[0];
+                    const nome = cols[1];
+                    const tag = cols[2] || '';
+
+                    if (!industrias[nome]) {
+                        industrias[nome] = { cnpjs: [], keywords: [], tag: tag };
+                    }
+
+                    if (cnpj && !industrias[nome].cnpjs.includes(cnpj)) {
+                        industrias[nome].cnpjs.push(cnpj);
+                    }
+                    if (tag) industrias[nome].tag = tag;
+                    selectedIndustriasForPrint.add(nome);
+
+                    count++;
+                }
+            });
+
+            localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
+            closeModalIndustriaLote();
+            renderIndustriesHeader();
+            alert(`${count} indústrias cadastradas/atualizadas com sucesso!`);
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            initSupabaseFromStorageOrDefault();
+            await fetchIndustriasFromSupabaseOrLocal();
+        });
     </script>
 </body>
 </html>
