@@ -491,12 +491,17 @@
                     <h3 class="font-bold text-xs text-slate-800 uppercase tracking-wider">Exportar e Imprimir Vencimentos Tratados</h3>
                     <p class="text-[11px] text-slate-500">Clique na linha do item para expandir o histórico de entradas originais.</p>
                 </div>
-                <div class="flex flex-wrap gap-2">
+                <div class="flex flex-wrap gap-2 items-center">
+                    <label class="flex items-center gap-1.5 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-2 rounded-lg cursor-pointer select-none hover:bg-rose-100 transition shadow-sm mr-1">
+                        <input type="checkbox" id="chkOnlySemIndustria" onchange="alternarAbaSae(abaAtualSae)" class="w-4 h-4 text-rose-600 rounded border-rose-300 focus:ring-rose-500 cursor-pointer">
+                        <i class="fa-solid fa-circle-xmark text-rose-600 text-xs"></i>
+                        <span>Apenas Sem Indústria (N)</span>
+                    </label>
                     <button id="btnToggleAllSae" onclick="alternarTodosHistoricosSae()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-arrows-up-down"></i>
                         <span id="lblToggleAllSae">Expandir Todos Os Históricos</span>
                     </button>
-                    <button onclick="imprimirTabelaSae()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition">
+                    <button onclick="imprimirTabelaSae()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition" title="Imprimir a tabela que está sendo mostrada na tela no momento">
                         <i class="fa-solid fa-print"></i> Imprimir Tabela
                     </button>
                     <button onclick="exportarExcelSae()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition" title="Exportar aba ativa para Excel (.xlsx)">
@@ -1449,6 +1454,7 @@
             const btnMesVem = document.getElementById('btnMesVem');
             const btnErros = document.getElementById('btnErros');
             const labelStatus = document.getElementById('tabStatusLabelSae');
+            const chkSemInd = document.getElementById('chkOnlySemIndustria')?.checked || false;
 
             [btnEsteMes, btnMesVem, btnErros].forEach(btn => {
                 btn.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300";
@@ -1457,16 +1463,20 @@
             let dados = [];
             if (aba === 'este_mes') {
                 btnEsteMes.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-amber-500 text-white shadow-sm";
-                labelStatus.innerText = "Exibindo: Vencimentos Deste Mês";
+                labelStatus.innerText = `Exibindo: Vencimentos Deste Mês ${chkSemInd ? '(Apenas Sem Indústria - N)' : ''}`;
                 dados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
             } else if (aba === 'mes_vem') {
                 btnMesVem.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-orange-500 text-white shadow-sm";
-                labelStatus.innerText = "Exibindo: Vencimentos do Mês Seguinte";
+                labelStatus.innerText = `Exibindo: Vencimentos do Mês Seguinte ${chkSemInd ? '(Apenas Sem Indústria - N)' : ''}`;
                 dados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
             } else if (aba === 'erros') {
                 btnErros.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-rose-600 text-white shadow-sm";
-                labelStatus.innerText = "Exibindo: Relatório de Erros de Lançamento";
+                labelStatus.innerText = `Exibindo: Relatório de Erros de Lançamento ${chkSemInd ? '(Apenas Sem Indústria - N)' : ''}`;
                 dados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
+            }
+
+            if (chkSemInd) {
+                dados = dados.filter(r => !r.temInd);
             }
 
             if (currentIndustria !== 'TODAS') {
@@ -1815,6 +1825,11 @@
             else if (tipo === 'mes_vem') dados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
             else dados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
 
+            const chkSemInd = document.getElementById('chkOnlySemIndustria')?.checked || false;
+            if (chkSemInd) {
+                dados = dados.filter(r => !r.temInd);
+            }
+
             const csv = Papa.unparse(dados, { delimiter: ";" });
             const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
@@ -1823,7 +1838,147 @@
             link.click();
         }
 
+        function getCurrentlyDisplayedSaeData() {
+            let dados = [];
+            if (abaAtualSae === 'este_mes') {
+                dados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
+            } else if (abaAtualSae === 'mes_vem') {
+                dados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
+            } else if (abaAtualSae === 'erros') {
+                dados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
+            }
+
+            const chkSemInd = document.getElementById('chkOnlySemIndustria')?.checked || false;
+            if (chkSemInd) {
+                dados = dados.filter(r => !r.temInd);
+            }
+
+            if (currentIndustria !== 'TODAS') {
+                const indConfig = industrias[currentIndustria] || { cnpjs: [], keywords: [] };
+                const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
+                const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+
+                dados = dados.filter(r => {
+                    if (r.skuFornecedor) {
+                        const fornClean = r.skuFornecedor.replace(/\D/g, '');
+                        if (cleanCnpjs.some(c => fornClean.includes(c) || c.includes(fornClean))) return true;
+                    }
+                    if (keywords.length > 0) {
+                        const desc = String(r.descricao).toLowerCase();
+                        if (keywords.some(kw => desc.includes(kw))) return true;
+                    }
+                    return r.indPertencente === currentIndustria;
+                });
+            }
+            return dados;
+        }
+
         function imprimirTabelaSae() {
+            const dados = getCurrentlyDisplayedSaeData();
+            if (!dados || dados.length === 0) {
+                alert("Nenhum dado exibido na tabela de vencimentos para imprimir.");
+                return;
+            }
+
+            const printContainer = document.getElementById('printArea');
+            const dateStr = new Date().toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+            let labelTab = "DESTE MÊS";
+            if (abaAtualSae === 'mes_vem') labelTab = "MÊS QUE VEM";
+            if (abaAtualSae === 'erros') labelTab = "ERROS DE LANÇAMENTO";
+
+            const indLabel = currentIndustria === 'TODAS' ? 'TODAS AS INDÚSTRIAS' : currentIndustria.toUpperCase();
+
+            let rowsHtml = '';
+            dados.forEach(item => {
+                const indBadgeText = item.temInd ? 'S' : 'N';
+                rowsHtml += `
+                    <tr>
+                        <td style="text-align:center; font-weight:bold;">${indBadgeText}</td>
+                        <td style="font-family: monospace; font-weight:bold;">${item.codigo}</td>
+                        <td>${item.descricao}</td>
+                        <td>${item.embalagem}</td>
+                        <td style="text-align:center;">${item.dataEntrada}</td>
+                        <td style="text-align:center;" class="print-highlight-amber">${item.dataVencimento}</td>
+                        <td style="text-align:right;">${item.estLiqAtual} CX</td>
+                        <td style="text-align:right;" class="print-highlight-amber">${item.estoqueRestanteEmb1} CX</td>
+                        <td style="text-align:right;">${item.vnd30Emb1} CX</td>
+                        <td style="text-align:center;">${item.diasSemVenda} d</td>
+                        <td style="text-align:center;">${item.statusGiro}</td>
+                    </tr>
+                `;
+
+                if (todosExpandidosSae) {
+                    let historicoRows = '';
+                    const historico = gruposSKUGlobalSae[item.codigo] || [];
+                    historico.forEach(h => {
+                        historicoRows += `
+                            <tr>
+                                <td>${formatDateDisplay(h._dtEntrada)}</td>
+                                <td style="color:#b45309; font-weight:bold;">${formatDateDisplay(h._dtVenc)}</td>
+                                <td style="text-align:right;">${h._qEmb1}</td>
+                                <td style="text-align:right;">${h._qEmb9}</td>
+                                <td style="text-align:right;">${h._estLiqEmb1}</td>
+                                <td style="text-align:right;">${h._estLiqEmb9}</td>
+                                <td style="text-align:right;">${h._vnd30Emb1}</td>
+                                <td style="text-align:center;">${h._tempoVida} d</td>
+                                <td style="text-align:right;">R$ ${h._valorVencimento.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `;
+                    });
+                    rowsHtml += `
+                        <tr>
+                            <td colspan="11" style="padding: 4px 8px; background-color: #f8fafc;">
+                                <div style="font-size: 7pt; font-weight: bold; margin-bottom: 2px; text-transform: uppercase;">Histórico de Entradas Originais (${historico.length})</div>
+                                <table class="print-table" style="font-size: 7pt; margin-bottom: 4px;">
+                                    <thead>
+                                        <tr style="background-color: #e2e8f0;">
+                                            <th>Entrada</th><th>Vencimento</th><th style="text-align:right">Qtd EMB1</th>
+                                            <th style="text-align:right">Qtd EMB9</th><th style="text-align:right">Est.Líq 1</th>
+                                            <th style="text-align:right">Est.Líq 9</th><th style="text-align:right">Vnd 30d</th>
+                                            <th style="text-align:center">Vida</th><th style="text-align:right">Valor Venc.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${historicoRows}</tbody>
+                                </table>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+
+            const fullHtml = `
+                <div class="industry-page-block">
+                    <table class="print-table">
+                        <thead>
+                            <tr class="print-header-row">
+                                <th colspan="11" class="print-header-cell">
+                                    <div class="print-header-content">
+                                        <div class="print-title">RELATÓRIO DE VENCIMENTOS TRATADOS (${labelTab}) - ${indLabel}</div>
+                                        <div class="print-meta-info">Emitido em: ${dateStr} | Total SKUs: ${dados.length}</div>
+                                    </div>
+                                </th>
+                            </tr>
+                            <tr class="print-columns-row">
+                                <th style="text-align:center">IND?</th>
+                                <th>Código</th>
+                                <th>Descrição</th>
+                                <th>Emb</th>
+                                <th style="text-align:center">Dt Ent</th>
+                                <th style="text-align:center">Dt Venc</th>
+                                <th style="text-align:right">Est Atual</th>
+                                <th style="text-align:right">Saldo Venc (CX)</th>
+                                <th style="text-align:right">Vnd 30d</th>
+                                <th style="text-align:center">Dias s/ Vnd</th>
+                                <th style="text-align:center">Status Giro</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                </div>
+            `;
+
+            printContainer.innerHTML = fullHtml;
             window.print();
         }
 
@@ -1903,7 +2058,7 @@
                                     </tr>
                                     <tr class="print-columns-row">
                                         <th>Código</th><th>Descrição</th><th>Emb</th><th>Dt Ent</th><th>Dt Venc</th>
-                                        <style="text-align:right">Est Atual</style><th style="text-align:right">Saldo Venc (CX)</th>
+                                        <th style="text-align:right">Est Atual</th><th style="text-align:right">Saldo Venc (CX)</th>
                                         <th style="text-align:right">Vnd 30d</th><th style="text-align:center">Dias s/ Vnd</th>
                                         <th style="text-align:center">Status Giro</th>
                                     </tr>
@@ -1951,7 +2106,6 @@
                 const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
 
                 let filtered = rawDatasetSmg12.filter(item => {
-                    // Match industry
                     const fornecedorStr = String(item['FORNECEDOR'] || '').replace(/\D/g, '');
                     let matchCNPJ = false;
                     if (cleanCnpjs.length > 0 && fornecedorStr.length > 0) {
@@ -1967,7 +2121,6 @@
 
                     if (!matchCNPJ && !matchKeyword) return false;
 
-                    // Match Ruptura or ISV filter
                     if (isRupturaActive) {
                         const entDate = parseDate(item['DT ULT ENT']);
                         if (!entDate) return false;
@@ -2171,7 +2324,7 @@
                 document.getElementById('indCnpjs').value = '';
                 document.getElementById('indKeywords').value = '';
                 document.getElementById('indTag').value = '';
-                btnDel.classList.add('hidden');
+                btnDel.add('hidden');
             }
             modal.classList.remove('hidden');
         }
