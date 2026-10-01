@@ -117,7 +117,7 @@
             }
             .print-table th, .print-table td {
                 border: 1px solid #cbd5e1;
-                padding: 3px 5px;
+                padding: 3px 4px;
                 text-align: left;
             }
 
@@ -522,7 +522,7 @@
             <!-- Table Section for SAE60 -->
             <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div class="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-2 items-center justify-between">
-                    <div class="flex flex-wrap gap-2" id="tabButtonsSae">
+                    <div class="flex flex-wrap gap-2 items-center" id="tabButtonsSae">
                         <button id="btnEsteMes" onclick="alternarAbaSae('este_mes')" class="px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-amber-500 text-white shadow-sm">
                             <i class="fa-solid fa-calendar-day"></i>
                             Vencimentos Deste Mês (<span id="cntEsteMes">0</span>)
@@ -537,9 +537,34 @@
                         </button>
                     </div>
 
-                    <span id="tabStatusLabelSae" class="text-xs font-semibold text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200">
-                        Exibindo: Vencimentos Deste Mês
-                    </span>
+                    <!-- Filtro por Código -->
+                    <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm text-xs">
+                        <i class="fa-solid fa-barcode text-amber-600"></i>
+                        <span class="font-bold text-slate-700 whitespace-nowrap">Código:</span>
+                        <input type="text" id="txtSaeCodigo" oninput="alternarAbaSae(abaAtualSae)" placeholder="Ex: 86733..." class="w-24 sm:w-28 bg-transparent focus:outline-none text-xs text-slate-700 font-mono font-bold placeholder:font-normal placeholder:text-slate-400">
+                        <button onclick="limparFiltroCodigoSae()" class="text-slate-400 hover:text-rose-600 transition px-1" title="Limpar Filtro de Código">
+                            <i class="fa-solid fa-circle-xmark text-sm"></i>
+                        </button>
+                    </div>
+
+                    <!-- Filtro por Intervalo de Datas -->
+                    <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm text-xs">
+                        <i class="fa-solid fa-calendar-days text-amber-600"></i>
+                        <span class="font-bold text-slate-700">Filtrar Vencimento:</span>
+                        <input type="date" id="dtSaeInicio" onchange="alternarAbaSae(abaAtualSae)" title="Data Inicial de Vencimento" class="border border-slate-300 rounded-md px-2 py-0.5 text-xs text-slate-700 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono">
+                        <span class="text-slate-400 font-medium">até</span>
+                        <input type="date" id="dtSaeFim" onchange="alternarAbaSae(abaAtualSae)" title="Data Final de Vencimento" class="border border-slate-300 rounded-md px-2 py-0.5 text-xs text-slate-700 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono">
+                        <button onclick="limparFiltroDataSae()" class="text-slate-400 hover:text-rose-600 transition px-1" title="Limpar Filtro de Data">
+                            <i class="fa-solid fa-circle-xmark text-sm"></i>
+                        </button>
+                    </div>
+
+                    <!-- Checkbox Hierarquizar por Data -->
+                    <label class="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 px-3 py-1.5 rounded-lg cursor-pointer select-none hover:bg-slate-50 transition shadow-sm">
+                        <input type="checkbox" id="chkHierarquizarData" onchange="alternarAbaSae(abaAtualSae)" class="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer">
+                        <i class="fa-solid fa-arrow-down-short-wide text-amber-600"></i>
+                        <span>Hierarquizar por Data</span>
+                    </label>
                 </div>
 
                 <div class="overflow-x-auto max-h-[600px]">
@@ -549,20 +574,27 @@
                                 <th class="p-3 w-8 text-center no-print"></th>
                                 <th class="p-3 text-center border-b border-slate-700" title="Possui indústria cadastrada no smg12 ou palavras-chave?">IND?</th>
                                 <th class="p-3">Código</th>
+                                <th class="p-3 text-center">PRE</th>
                                 <th class="p-3">Descrição da Mercadoria</th>
                                 <th class="p-3">Embalagem</th>
-                                <th class="p-3">Data Entrada</th>
-                                <th class="p-3">Data Vencimento</th>
-                                <th class="p-3 text-right">EST<br>ATUAL</th>
+                                <th class="p-3 text-center">Data Entrada</th>
+                                <th class="p-3 text-center w-10" title="Vencimentos Adicionais no Período">V</th>
+                                <th class="p-3 text-center">Data Vencimento</th>
+                                <th class="p-3 text-center leading-tight">EST<br>ATUAL</th>
                                 <th class="p-3 text-right">Saldo EMB1 (CX)</th>
                                 <th class="p-3 text-right">Vnd 30d (CX)</th>
                                 <th class="p-3 text-center">Dias Sem Venda</th>
+                                <th class="p-3 text-center">Qtde Ideal</th>
+                                <th class="p-3 text-center">Lastro</th>
+                                <th class="p-3 text-center font-bold text-slate-300 bg-slate-700/50">63</th>
+                                <th class="p-3 text-center font-bold text-slate-300 bg-slate-700/50">SEP</th>
+                                <th class="p-3 text-center font-bold text-slate-300 bg-slate-700/50">APV</th>
                                 <th class="p-3 text-center">Giro / Venda até Vencimento</th>
                             </tr>
                         </thead>
                         <tbody id="tableBodySae60" class="divide-y divide-slate-200">
                             <tr>
-                                <td colspan="12" class="p-8 text-center text-slate-400">
+                                <td colspan="19" class="p-8 text-center text-slate-400">
                                     Nenhum relatório sae60 carregado. Faça upload acima para visualizar os vencimentos FIFO.
                                 </td>
                             </tr>
@@ -918,7 +950,6 @@
                 const tagStr = ind.tag ? normalizeStr(ind.tag) : '';
                 const nameStr = normalizeStr(name);
 
-                // Filter Search
                 if (searchVal && !nameStr.includes(searchVal) && !tagStr.includes(searchVal)) {
                     return;
                 }
@@ -986,7 +1017,6 @@
                 container.appendChild(btnGroup);
             });
 
-            // Update Print Button on Top Bar
             const btnPrintComVenc = document.getElementById('btnPrintComVencimento');
             const lblPrintComVenc = document.getElementById('lblPrintComVencimento');
             if (btnPrintComVenc && lblPrintComVenc) {
@@ -1156,6 +1186,7 @@
                 const descricao = getVal('DESCRICAO', 'DESCRIÇÃO');
                 const emb = getVal('EMBALAGEM', 'EMB');
                 const lastro = getVal('LASTRO');
+                const qtdIdeal = getVal('QTD IDEAL', 'QTDE IDEAL', 'QTD_IDEAL', 'QTDE_IDEAL', 'ESTOQUE IDEAL', 'EST. IDEAL', 'EST_IDEAL', 'IDEAL');
                 const dtUltEnt = formatDateDisplay(getVal('DT ULT ENT', 'DT_ULT_ENT'));
                 const dtUltVnd = formatDateDisplay(getVal('DT ULT VND', 'DT_ULT_VND'));
                 const qtdUltEnt = parseNum(getVal('QTD ULT ENT', 'QTD_ULT_ENT'));
@@ -1172,7 +1203,10 @@
                     smg12SkuMap.set(codigo, {
                         fornecedor: fornecedor,
                         descricao: descricao,
-                        emb: emb
+                        emb: emb,
+                        lastro: lastro,
+                        qtdIdeal: qtdIdeal,
+                        digito: digito
                     });
                 }
 
@@ -1278,7 +1312,7 @@
             const mesQueVem = mesQueVemObj.getMonth();
             const anoMesQueVem = mesQueVemObj.getFullYear();
 
-            let resultados = [];
+            let rawAllocatedResults = [];
             let totalErrosData = 0;
 
             Object.keys(gruposSKUGlobalSae).forEach(sku => {
@@ -1327,34 +1361,6 @@
 
                     if (erroLancamento) totalErrosData++;
 
-                    let statusGiro = "Normal";
-                    let badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
-
-                    if (e._dtVenc && alocadoEmb1 > 0) {
-                        const diasAteVenc = Math.ceil((e._dtVenc - hoje) / (1000 * 60 * 60 * 24));
-                        const vendaDiaria = e._vnd30Emb1 / 30;
-
-                        if (diasAteVenc <= 0) {
-                            statusGiro = "Preocupante (Vencido)";
-                            badgeColor = "bg-rose-100 text-rose-800 border-rose-300";
-                        } else if (vendaDiaria <= 0) {
-                            statusGiro = "Preocupante (Sem Venda)";
-                            badgeColor = "bg-slate-200 text-slate-700 border-slate-300";
-                        } else {
-                            const projecao = vendaDiaria * diasAteVenc;
-                            if (projecao >= alocadoEmb1) {
-                                statusGiro = "Normal";
-                                badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
-                            } else if (projecao >= (alocadoEmb1 * 0.7)) {
-                                statusGiro = "Atenção";
-                                badgeColor = "bg-amber-100 text-amber-800 border-amber-300";
-                            } else {
-                                statusGiro = "Preocupante";
-                                badgeColor = "bg-rose-100 text-rose-800 border-rose-300";
-                            }
-                        }
-                    }
-
                     let ehEsteMes = false;
                     let ehMesVem = false;
 
@@ -1391,11 +1397,18 @@
                         }
                     });
 
+                    let lastroVal = e['LASTRO'] || (smg12Info ? smg12Info.lastro : '') || '-';
+                    let qtdIdealVal = e['QTDE IDEAL'] || e['QTD IDEAL'] || e['QTDE. IDEAL'] || e['ESTOQUE IDEAL'] || e['EST. IDEAL'] || (smg12Info ? smg12Info.qtdIdeal : '') || '-';
+                    let digitoVal = e['PRE'] || e['DIGITO'] || e['DÍGITO'] || e['DGT'] || (smg12Info ? smg12Info.digito : '') || '-';
+
                     if (alocadoEmb1 > 0 || erroLancamento) {
-                        resultados.push({
+                        rawAllocatedResults.push({
                             codigo: sku,
+                            digito: digitoVal,
                             descricao: e['DESCRIÇÃO MERCADORIA'] || '',
                             embalagem: e['EMBALAGEM'] || '',
+                            dtEntradaObj: e._dtEntrada,
+                            dtVencObj: e._dtVenc,
                             dataEntrada: formatDateDisplay(e._dtEntrada),
                             dataVencimento: formatDateDisplay(e._dtVenc),
                             valorVencimento: e._valorVencimento,
@@ -1405,8 +1418,8 @@
                             estLiqAtual: e._estLiqEmb1,
                             vnd30Emb1: e._vnd30Emb1,
                             diasSemVenda: e._diasSemVenda,
-                            statusGiro: statusGiro,
-                            badgeColor: badgeColor,
+                            lastro: lastroVal,
+                            qtdIdeal: qtdIdealVal,
                             erroLancamento: erroLancamento ? "SIM" : "NÃO",
                             motivoErro: motivoErro,
                             ehEsteMes: ehEsteMes,
@@ -1417,6 +1430,95 @@
                         });
                     }
                 }
+            });
+
+            // Agrupar por SKU e Categoria de Vencimento
+            const mapGruposCat = new Map();
+
+            rawAllocatedResults.forEach(item => {
+                let catKey = 'outros';
+                if (item.ehEsteMes) catKey = 'este_mes';
+                else if (item.ehMesVem) catKey = 'mes_vem';
+                if (item.erroLancamento === "SIM") catKey += '_erro';
+
+                const groupKey = `${item.codigo}_${catKey}`;
+
+                if (!mapGruposCat.has(groupKey)) {
+                    mapGruposCat.set(groupKey, []);
+                }
+                mapGruposCat.get(groupKey).push(item);
+            });
+
+            let resultados = [];
+
+            mapGruposCat.forEach((itemsList) => {
+                if (!itemsList || itemsList.length === 0) return;
+
+                itemsList.sort((a, b) => (a.dtVencObj || 0) - (b.dtVencObj || 0));
+
+                const earliestItem = itemsList[0];
+                const countOutrosVenc = itemsList.length - 1;
+                const indicatorV = countOutrosVenc > 0 ? `+${countOutrosVenc}` : '';
+
+                let statusGiro = "Normal";
+                let badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
+
+                if (earliestItem.dtVencObj && earliestItem.estoqueRestanteEmb1 > 0) {
+                    const diasAteVenc = Math.ceil((earliestItem.dtVencObj - hoje) / (1000 * 60 * 60 * 24));
+                    const vendaDiaria = earliestItem.vnd30Emb1 / 30;
+
+                    if (diasAteVenc <= 0) {
+                        statusGiro = "Preocupante (Vencido)";
+                        badgeColor = "bg-rose-100 text-rose-800 border-rose-300";
+                    } else if (vendaDiaria <= 0) {
+                        statusGiro = "Preocupante (Sem Venda)";
+                        badgeColor = "bg-slate-200 text-slate-700 border-slate-300";
+                    } else {
+                        const projecao = vendaDiaria * diasAteVenc;
+                        if (projecao >= earliestItem.estoqueRestanteEmb1) {
+                            statusGiro = "Normal";
+                            badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
+                        } else if (projecao >= (earliestItem.estoqueRestanteEmb1 * 0.7)) {
+                            statusGiro = "Atenção";
+                            badgeColor = "bg-amber-100 text-amber-800 border-amber-300";
+                        } else {
+                            statusGiro = "Preocupante";
+                            badgeColor = "bg-rose-100 text-rose-800 border-rose-300";
+                        }
+                    }
+                }
+
+                const totalValorVenc = itemsList.reduce((acc, curr) => acc + (curr.valorVencimento || 0), 0);
+
+                resultados.push({
+                    codigo: earliestItem.codigo,
+                    digito: earliestItem.digito,
+                    descricao: earliestItem.descricao,
+                    embalagem: earliestItem.embalagem,
+                    dtEntradaObj: earliestItem.dtEntradaObj,
+                    dtVencObj: earliestItem.dtVencObj,
+                    dataEntrada: earliestItem.dataEntrada,
+                    dataVencimento: earliestItem.dataVencimento,
+                    indicatorV: indicatorV,
+                    valorVencimento: totalValorVenc,
+                    tempoVida: earliestItem.tempoVida,
+                    qtdeEntradaEmb1: earliestItem.qtdeEntradaEmb1,
+                    estoqueRestanteEmb1: earliestItem.estoqueRestanteEmb1,
+                    estLiqAtual: earliestItem.estLiqAtual,
+                    vnd30Emb1: earliestItem.vnd30Emb1,
+                    diasSemVenda: earliestItem.diasSemVenda,
+                    lastro: earliestItem.lastro,
+                    qtdIdeal: earliestItem.qtdIdeal,
+                    statusGiro: statusGiro,
+                    badgeColor: badgeColor,
+                    erroLancamento: earliestItem.erroLancamento,
+                    motivoErro: earliestItem.motivoErro,
+                    ehEsteMes: earliestItem.ehEsteMes,
+                    ehMesVem: earliestItem.ehMesVem,
+                    temInd: earliestItem.temInd,
+                    indPertencente: earliestItem.indPertencente,
+                    skuFornecedor: earliestItem.skuFornecedor
+                });
             });
 
             resultados.sort((a, b) => b.valorVencimento - a.valorVencimento);
@@ -1445,38 +1547,55 @@
             alternarAbaSae('este_mes');
         }
 
-        function alternarAbaSae(aba) {
-            abaAtualSae = aba;
-            todosExpandidosSae = false;
-            atualizarBotaoToggleAllSae();
+        function limparFiltroDataSae() {
+            const elIn = document.getElementById('dtSaeInicio');
+            const elFim = document.getElementById('dtSaeFim');
+            if (elIn) elIn.value = '';
+            if (elFim) elFim.value = '';
+            alternarAbaSae(abaAtualSae);
+        }
 
-            const btnEsteMes = document.getElementById('btnEsteMes');
-            const btnMesVem = document.getElementById('btnMesVem');
-            const btnErros = document.getElementById('btnErros');
-            const labelStatus = document.getElementById('tabStatusLabelSae');
-            const chkSemInd = document.getElementById('chkOnlySemIndustria')?.checked || false;
+        function limparFiltroCodigoSae() {
+            const elCd = document.getElementById('txtSaeCodigo');
+            if (elCd) elCd.value = '';
+            alternarAbaSae(abaAtualSae);
+        }
 
-            [btnEsteMes, btnMesVem, btnErros].forEach(btn => {
-                btn.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300";
-            });
-
+        function getCurrentlyDisplayedSaeData() {
             let dados = [];
-            if (aba === 'este_mes') {
-                btnEsteMes.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-amber-500 text-white shadow-sm";
-                labelStatus.innerText = `Exibindo: Vencimentos Deste Mês ${chkSemInd ? '(Apenas Sem Indústria - N)' : ''}`;
+            if (abaAtualSae === 'este_mes') {
                 dados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
-            } else if (aba === 'mes_vem') {
-                btnMesVem.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-orange-500 text-white shadow-sm";
-                labelStatus.innerText = `Exibindo: Vencimentos do Mês Seguinte ${chkSemInd ? '(Apenas Sem Indústria - N)' : ''}`;
+            } else if (abaAtualSae === 'mes_vem') {
                 dados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
-            } else if (aba === 'erros') {
-                btnErros.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-rose-600 text-white shadow-sm";
-                labelStatus.innerText = `Exibindo: Relatório de Erros de Lançamento ${chkSemInd ? '(Apenas Sem Indústria - N)' : ''}`;
+            } else if (abaAtualSae === 'erros') {
                 dados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
             }
 
+            const chkSemInd = document.getElementById('chkOnlySemIndustria')?.checked || false;
             if (chkSemInd) {
                 dados = dados.filter(r => !r.temInd);
+            }
+
+            // Filtro por Código / Descrição
+            const cdSearchVal = normalizeStr(document.getElementById('txtSaeCodigo')?.value || '');
+            if (cdSearchVal) {
+                dados = dados.filter(r => 
+                    normalizeStr(r.codigo).includes(cdSearchVal) || 
+                    normalizeStr(r.descricao).includes(cdSearchVal)
+                );
+            }
+
+            // Filtro por Intervalo de Datas de Vencimento
+            const dtInicioVal = document.getElementById('dtSaeInicio')?.value;
+            const dtFimVal = document.getElementById('dtSaeFim')?.value;
+
+            if (dtInicioVal) {
+                const dtInicio = new Date(dtInicioVal + 'T00:00:00');
+                dados = dados.filter(r => r.dtVencObj && r.dtVencObj >= dtInicio);
+            }
+            if (dtFimVal) {
+                const dtFim = new Date(dtFimVal + 'T23:59:59');
+                dados = dados.filter(r => r.dtVencObj && r.dtVencObj <= dtFim);
             }
 
             if (currentIndustria !== 'TODAS') {
@@ -1497,6 +1616,40 @@
                 });
             }
 
+            // Hierarquização (Ordenação): por Data (Mais cedo -> Mais tarde) ou por Valor de Vencimento (Maior -> Menor)
+            const chkHierarquizar = document.getElementById('chkHierarquizarData')?.checked || false;
+            if (chkHierarquizar) {
+                dados.sort((a, b) => (a.dtVencObj || 0) - (b.dtVencObj || 0));
+            } else {
+                dados.sort((a, b) => (b.valorVencimento || 0) - (a.valorVencimento || 0));
+            }
+
+            return dados;
+        }
+
+        function alternarAbaSae(aba) {
+            abaAtualSae = aba;
+            todosExpandidosSae = false;
+            atualizarBotaoToggleAllSae();
+
+            const btnEsteMes = document.getElementById('btnEsteMes');
+            const btnMesVem = document.getElementById('btnMesVem');
+            const btnErros = document.getElementById('btnErros');
+
+            [btnEsteMes, btnMesVem, btnErros].forEach(btn => {
+                btn.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-slate-200 text-slate-700 hover:bg-slate-300";
+            });
+
+            if (aba === 'este_mes') {
+                btnEsteMes.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-amber-500 text-white shadow-sm";
+            } else if (aba === 'mes_vem') {
+                btnMesVem.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-orange-500 text-white shadow-sm";
+            } else if (aba === 'erros') {
+                btnErros.className = "px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-rose-600 text-white shadow-sm";
+            }
+
+            const dados = getCurrentlyDisplayedSaeData();
+
             renderIndustriesHeader();
             renderizarTabelaSae(dados);
         }
@@ -1506,7 +1659,7 @@
             tbody.innerHTML = '';
 
             if (!dados || dados.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-slate-400">Nenhum registro encontrado para a indústria e filtro selecionados.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="19" class="p-8 text-center text-slate-400">Nenhum registro encontrado para a indústria e filtro selecionados.</td></tr>`;
                 return;
             }
 
@@ -1520,6 +1673,10 @@
                     ? `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] px-1.5 py-0.5 rounded font-bold" title="Indústria: ${row.indPertencente || 'Cadastrada'}">S</span>`
                     : `<span class="bg-slate-100 text-slate-400 border border-slate-200 text-[10px] px-1.5 py-0.5 rounded font-bold">N</span>`;
 
+                const badgeV = row.indicatorV
+                    ? `<span class="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] px-1.5 py-0.5 rounded-full font-bold" title="Outros vencimentos no período">${row.indicatorV}</span>`
+                    : '';
+
                 htmlBuffer += `
                     <tr class="${bgRow} hover:bg-amber-50/60 transition cursor-pointer border-b border-slate-200" onclick="toggleHistoricoSae('${detailId}', 'iconSae-${index}')">
                         <td class="p-3 text-center text-slate-400 font-bold no-print">
@@ -1527,14 +1684,21 @@
                         </td>
                         <td class="p-3 text-center">${indBadge}</td>
                         <td class="p-3 font-mono font-bold text-slate-900">${row.codigo}</td>
+                        <td class="p-3 text-center font-mono font-medium text-slate-600">${row.digito || '-'}</td>
                         <td class="p-3 font-medium text-slate-800">${row.descricao}</td>
                         <td class="p-3 text-slate-600">${row.embalagem}</td>
                         <td class="p-3 text-center">${row.dataEntrada}</td>
+                        <td class="p-3 text-center">${badgeV}</td>
                         <td class="p-3 text-center font-bold text-amber-800">${row.dataVencimento}</td>
-                        <td class="p-3 text-right font-bold text-slate-700">${row.estLiqAtual} CX</td>
+                        <td class="p-3 text-center font-bold text-slate-700">${row.estLiqAtual} CX</td>
                         <td class="p-3 text-right font-bold text-amber-900 bg-amber-50">${row.estoqueRestanteEmb1} CX</td>
                         <td class="p-3 text-right font-semibold text-brand-700">${row.vnd30Emb1} CX</td>
                         <td class="p-3 text-center text-slate-600">${row.diasSemVenda} d</td>
+                        <td class="p-3 text-center font-medium text-slate-700">${row.qtdIdeal || '-'}</td>
+                        <td class="p-3 text-center font-medium text-slate-700">${row.lastro || '-'}</td>
+                        <td class="p-3 text-center font-medium text-slate-400 border-l border-slate-200/60"></td>
+                        <td class="p-3 text-center font-medium text-slate-400 border-l border-slate-200/60"></td>
+                        <td class="p-3 text-center font-medium text-slate-400 border-l border-slate-200/60"></td>
                         <td class="p-3 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold border inline-block ${row.badgeColor}">${row.statusGiro}</span></td>
                     </tr>
                 `;
@@ -1559,7 +1723,7 @@
 
                 htmlBuffer += `
                     <tr id="${detailId}" class="hidden detail-row-sae bg-slate-100">
-                        <td colspan="12" class="p-3">
+                        <td colspan="19" class="p-3">
                             <div class="bg-slate-50 border border-slate-300 rounded-lg p-2.5">
                                 <div class="text-[10px] font-bold text-slate-600 uppercase mb-1">
                                     Histórico de Entradas Originais (${historico.length})
@@ -1806,71 +1970,67 @@
         }
 
         function exportarExcelSae() {
-            if (!globalResultadoProcessadoSae || globalResultadoProcessadoSae.length === 0) return;
-            let dados = [];
-            if (abaAtualSae === 'este_mes') dados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
-            else if (abaAtualSae === 'mes_vem') dados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
-            else dados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
+            const dados = getCurrentlyDisplayedSaeData();
+            if (!dados || dados.length === 0) return;
 
-            const ws = XLSX.utils.json_to_sheet(dados);
+            const mapExport = dados.map(item => ({
+                'IND?': item.temInd ? 'S' : 'N',
+                'CÓDIGO': item.codigo,
+                'PRE': item.digito || '',
+                'DESCRIÇÃO MERCADORIA': item.descricao,
+                'EMBALAGEM': item.embalagem,
+                'DATA ENTRADA': item.dataEntrada,
+                'V': item.indicatorV || '',
+                'DATA VENCIMENTO': item.dataVencimento,
+                'EST ATUAL': item.estLiqAtual,
+                'SALDO EMB1 (CX)': item.estoqueRestanteEmb1,
+                'VND 30D (CX)': item.vnd30Emb1,
+                'DIAS SEM VENDA': item.diasSemVenda,
+                'QTDE IDEAL': item.qtdIdeal || '',
+                'LASTRO': item.lastro || '',
+                '63': '',
+                'SEP': '',
+                'APV': '',
+                'STATUS GIRO': item.statusGiro
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(mapExport);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Vencimentos sae60");
             XLSX.writeFile(wb, `Vencimentos_sae60_${abaAtualSae}.xlsx`);
         }
 
         function exportarCSVSae(tipo) {
-            if (!globalResultadoProcessadoSae || globalResultadoProcessadoSae.length === 0) return;
-            let dados = [];
-            if (tipo === 'este_mes') dados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
-            else if (tipo === 'mes_vem') dados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
-            else dados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
+            const dados = getCurrentlyDisplayedSaeData();
+            if (!dados || dados.length === 0) return;
 
-            const chkSemInd = document.getElementById('chkOnlySemIndustria')?.checked || false;
-            if (chkSemInd) {
-                dados = dados.filter(r => !r.temInd);
-            }
+            const mapExport = dados.map(item => ({
+                'IND?': item.temInd ? 'S' : 'N',
+                'CÓDIGO': item.codigo,
+                'PRE': item.digito || '',
+                'DESCRIÇÃO MERCADORIA': item.descricao,
+                'EMBALAGEM': item.embalagem,
+                'DATA ENTRADA': item.dataEntrada,
+                'V': item.indicatorV || '',
+                'DATA VENCIMENTO': item.dataVencimento,
+                'EST ATUAL': item.estLiqAtual,
+                'SALDO EMB1 (CX)': item.estoqueRestanteEmb1,
+                'VND 30D (CX)': item.vnd30Emb1,
+                'DIAS SEM VENDA': item.diasSemVenda,
+                'QTDE IDEAL': item.qtdIdeal || '',
+                'LASTRO': item.lastro || '',
+                '63': '',
+                'SEP': '',
+                'APV': '',
+                'STATUS GIRO': item.statusGiro
+            }));
 
-            const csv = Papa.unparse(dados, { delimiter: ";" });
+            const csv = Papa.unparse(mapExport, { delimiter: ";" });
             const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
             link.download = `Vencimentos_sae60_${tipo}.csv`;
             link.click();
-        }
-
-        function getCurrentlyDisplayedSaeData() {
-            let dados = [];
-            if (abaAtualSae === 'este_mes') {
-                dados = globalResultadoProcessadoSae.filter(r => r.ehEsteMes && r.estoqueRestanteEmb1 > 0);
-            } else if (abaAtualSae === 'mes_vem') {
-                dados = globalResultadoProcessadoSae.filter(r => r.ehMesVem && r.estoqueRestanteEmb1 > 0);
-            } else if (abaAtualSae === 'erros') {
-                dados = globalResultadoProcessadoSae.filter(r => r.erroLancamento === "SIM");
-            }
-
-            const chkSemInd = document.getElementById('chkOnlySemIndustria')?.checked || false;
-            if (chkSemInd) {
-                dados = dados.filter(r => !r.temInd);
-            }
-
-            if (currentIndustria !== 'TODAS') {
-                const indConfig = industrias[currentIndustria] || { cnpjs: [], keywords: [] };
-                const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
-                const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
-
-                dados = dados.filter(r => {
-                    if (r.skuFornecedor) {
-                        const fornClean = r.skuFornecedor.replace(/\D/g, '');
-                        if (cleanCnpjs.some(c => fornClean.includes(c) || c.includes(fornClean))) return true;
-                    }
-                    if (keywords.length > 0) {
-                        const desc = String(r.descricao).toLowerCase();
-                        if (keywords.some(kw => desc.includes(kw))) return true;
-                    }
-                    return r.indPertencente === currentIndustria;
-                });
-            }
-            return dados;
         }
 
         function imprimirTabelaSae() {
@@ -1896,14 +2056,21 @@
                     <tr>
                         <td style="text-align:center; font-weight:bold;">${indBadgeText}</td>
                         <td style="font-family: monospace; font-weight:bold;">${item.codigo}</td>
+                        <td style="text-align:center; font-family: monospace;">${item.digito || '-'}</td>
                         <td>${item.descricao}</td>
                         <td>${item.embalagem}</td>
                         <td style="text-align:center;">${item.dataEntrada}</td>
+                        <td style="text-align:center; font-weight:bold; color:#d97706;">${item.indicatorV || ''}</td>
                         <td style="text-align:center;" class="print-highlight-amber">${item.dataVencimento}</td>
-                        <td style="text-align:right;">${item.estLiqAtual} CX</td>
+                        <td style="text-align:center; font-weight:bold;">${item.estLiqAtual} CX</td>
                         <td style="text-align:right;" class="print-highlight-amber">${item.estoqueRestanteEmb1} CX</td>
                         <td style="text-align:right;">${item.vnd30Emb1} CX</td>
                         <td style="text-align:center;">${item.diasSemVenda} d</td>
+                        <td style="text-align:center;">${item.qtdIdeal || '-'}</td>
+                        <td style="text-align:center;">${item.lastro || '-'}</td>
+                        <td style="text-align:center; width:26px;"></td>
+                        <td style="text-align:center; width:26px;"></td>
+                        <td style="text-align:center; width:26px;"></td>
                         <td style="text-align:center;">${item.statusGiro}</td>
                     </tr>
                 `;
@@ -1928,7 +2095,7 @@
                     });
                     rowsHtml += `
                         <tr>
-                            <td colspan="11" style="padding: 4px 8px; background-color: #f8fafc;">
+                            <td colspan="18" style="padding: 4px 8px; background-color: #f8fafc;">
                                 <div style="font-size: 7pt; font-weight: bold; margin-bottom: 2px; text-transform: uppercase;">Histórico de Entradas Originais (${historico.length})</div>
                                 <table class="print-table" style="font-size: 7pt; margin-bottom: 4px;">
                                     <thead>
@@ -1952,7 +2119,7 @@
                     <table class="print-table">
                         <thead>
                             <tr class="print-header-row">
-                                <th colspan="11" class="print-header-cell">
+                                <th colspan="18" class="print-header-cell">
                                     <div class="print-header-content">
                                         <div class="print-title">RELATÓRIO DE VENCIMENTOS TRATADOS (${labelTab}) - ${indLabel}</div>
                                         <div class="print-meta-info">Emitido em: ${dateStr} | Total SKUs: ${dados.length}</div>
@@ -1962,14 +2129,21 @@
                             <tr class="print-columns-row">
                                 <th style="text-align:center">IND?</th>
                                 <th>Código</th>
+                                <th style="text-align:center">PRE</th>
                                 <th>Descrição</th>
                                 <th>Emb</th>
                                 <th style="text-align:center">Dt Ent</th>
+                                <th style="text-align:center">V</th>
                                 <th style="text-align:center">Dt Venc</th>
-                                <th style="text-align:right">Est Atual</th>
+                                <th style="text-align:center">Est Atual</th>
                                 <th style="text-align:right">Saldo Venc (CX)</th>
                                 <th style="text-align:right">Vnd 30d</th>
                                 <th style="text-align:center">Dias s/ Vnd</th>
+                                <th style="text-align:center">Qtd Ideal</th>
+                                <th style="text-align:center">Lastro</th>
+                                <th style="text-align:center">63</th>
+                                <th style="text-align:center">SEP</th>
+                                <th style="text-align:center">APV</th>
                                 <th style="text-align:center">Status Giro</th>
                             </tr>
                         </thead>
@@ -1995,7 +2169,6 @@
             const dateStr = new Date().toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
             Object.keys(industrias).forEach(indName => {
-                // APENAS AS INDÚSTRIAS SELECIONADAS (COM CHECKBOX MARCADO)
                 if (!selectedIndustriasForPrint.has(indName)) return;
 
                 const count = saeCounts[indName]?.[abaAtualSae] || 0;
@@ -2027,14 +2200,21 @@
                         rowsHtml += `
                             <tr>
                                 <td style="font-family: monospace;">${item.codigo}</td>
+                                <td style="text-align:center; font-family: monospace;">${item.digito || '-'}</td>
                                 <td>${item.descricao}</td>
                                 <td>${item.embalagem}</td>
                                 <td style="text-align:center;">${item.dataEntrada}</td>
+                                <td style="text-align:center; font-weight:bold; color:#d97706;">${item.indicatorV || ''}</td>
                                 <td style="text-align:center;" class="print-highlight-amber">${item.dataVencimento}</td>
-                                <td style="text-align:right;">${item.estLiqAtual} CX</td>
+                                <td style="text-align:center; font-weight:bold;">${item.estLiqAtual} CX</td>
                                 <td style="text-align:right;" class="print-highlight-amber">${item.estoqueRestanteEmb1} CX</td>
                                 <td style="text-align:right;">${item.vnd30Emb1} CX</td>
                                 <td style="text-align:center;">${item.diasSemVenda} d</td>
+                                <td style="text-align:center;">${item.qtdIdeal || '-'}</td>
+                                <td style="text-align:center;">${item.lastro || '-'}</td>
+                                <td style="text-align:center; width:26px;"></td>
+                                <td style="text-align:center; width:26px;"></td>
+                                <td style="text-align:center; width:26px;"></td>
                                 <td style="text-align:center;">${item.statusGiro}</td>
                             </tr>
                         `;
@@ -2049,7 +2229,7 @@
                             <table class="print-table">
                                 <thead>
                                     <tr class="print-header-row">
-                                        <th colspan="10" class="print-header-cell">
+                                        <th colspan="17" class="print-header-cell">
                                             <div class="print-header-content">
                                                 <div class="print-title">INDÚSTRIA ${indName.toUpperCase()} - VENCIMENTOS (${labelTab})</div>
                                                 <div class="print-meta-info">Emitido em: ${dateStr} | Total SKUs: ${indData.length}</div>
@@ -2057,9 +2237,12 @@
                                         </th>
                                     </tr>
                                     <tr class="print-columns-row">
-                                        <th>Código</th><th>Descrição</th><th>Emb</th><th>Dt Ent</th><th>Dt Venc</th>
-                                        <th style="text-align:right">Est Atual</th><th style="text-align:right">Saldo Venc (CX)</th>
+                                        <th>Código</th><th style="text-align:center">PRE</th><th>Descrição</th><th>Emb</th><th>Dt Ent</th>
+                                        <th style="text-align:center">V</th><th>Dt Venc</th>
+                                        <th style="text-align:center">Est Atual</th><th style="text-align:right">Saldo Venc (CX)</th>
                                         <th style="text-align:right">Vnd 30d</th><th style="text-align:center">Dias s/ Vnd</th>
+                                        <th style="text-align:center">Qtd Ideal</th><th style="text-align:center">Lastro</th>
+                                        <th style="text-align:center">63</th><th style="text-align:center">SEP</th><th style="text-align:center">APV</th>
                                         <th style="text-align:center">Status Giro</th>
                                     </tr>
                                 </thead>
@@ -2324,7 +2507,7 @@
                 document.getElementById('indCnpjs').value = '';
                 document.getElementById('indKeywords').value = '';
                 document.getElementById('indTag').value = '';
-                btnDel.add('hidden');
+                btnDel.classList.add('hidden');
             }
             modal.classList.remove('hidden');
         }
