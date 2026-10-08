@@ -1454,70 +1454,101 @@
             mapGruposCat.forEach((itemsList) => {
                 if (!itemsList || itemsList.length === 0) return;
 
-                itemsList.sort((a, b) => (a.dtVencObj || 0) - (b.dtVencObj || 0));
+                // Agrupar os itens da categoria por Data de Vencimento única
+                const mapByVencDate = new Map();
+                itemsList.forEach(item => {
+                    const dateKey = item.dtVencObj ? item.dtVencObj.getTime() : 0;
+                    if (!mapByVencDate.has(dateKey)) {
+                        mapByVencDate.set(dateKey, []);
+                    }
+                    mapByVencDate.get(dateKey).push(item);
+                });
 
-                const earliestItem = itemsList[0];
-                const countOutrosVenc = itemsList.length - 1;
-                const indicatorV = countOutrosVenc > 0 ? `+${countOutrosVenc}` : '';
+                // Ordenar as datas de vencimento da mais próxima para a mais distante
+                const sortedDateKeys = Array.from(mapByVencDate.keys()).sort((a, b) => a - b);
 
-                let statusGiro = "Normal";
-                let badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
+                // Filtrar apenas datas que possuem saldo de caixas > 0 ou erro de lançamento
+                const validDateKeys = sortedDateKeys.filter(dateKey => {
+                    const groupItems = mapByVencDate.get(dateKey);
+                    const saldoEmb1Group = groupItems.reduce((acc, curr) => acc + (curr.estoqueRestanteEmb1 || 0), 0);
+                    return saldoEmb1Group > 0 || groupItems.some(i => i.erroLancamento === "SIM");
+                });
 
-                if (earliestItem.dtVencObj && earliestItem.estoqueRestanteEmb1 > 0) {
-                    const diasAteVenc = Math.ceil((earliestItem.dtVencObj - hoje) / (1000 * 60 * 60 * 24));
-                    const vendaDiaria = earliestItem.vnd30Emb1 / 30;
+                const totalDatasDistintas = validDateKeys.length;
 
-                    if (diasAteVenc <= 0) {
-                        statusGiro = "Preocupante (Vencido)";
-                        badgeColor = "bg-rose-100 text-rose-800 border-rose-300";
-                    } else if (vendaDiaria <= 0) {
-                        statusGiro = "Preocupante (Sem Venda)";
-                        badgeColor = "bg-slate-200 text-slate-700 border-slate-300";
-                    } else {
-                        const projecao = vendaDiaria * diasAteVenc;
-                        if (projecao >= earliestItem.estoqueRestanteEmb1) {
-                            statusGiro = "Normal";
-                            badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
-                        } else if (projecao >= (earliestItem.estoqueRestanteEmb1 * 0.7)) {
-                            statusGiro = "Atenção";
-                            badgeColor = "bg-amber-100 text-amber-800 border-amber-300";
-                        } else {
-                            statusGiro = "Preocupante";
+                // Criar uma LINHA SEPARADA para CADA DATA DE VENCIMENTO ÚNICA
+                validDateKeys.forEach((dateKey, index) => {
+                    const groupItems = mapByVencDate.get(dateKey);
+
+                    // Somar o saldo em caixas de todas as entradas com essa MESMA data de vencimento
+                    const saldoEmb1Group = groupItems.reduce((acc, curr) => acc + (curr.estoqueRestanteEmb1 || 0), 0);
+
+                    // Item representativo para dados de exibição (priorizando a data de entrada mais recente)
+                    groupItems.sort((a, b) => (b.dtEntradaObj || 0) - (a.dtEntradaObj || 0));
+                    const representativeItem = groupItems[0];
+
+                    let statusGiro = "Normal";
+                    let badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
+
+                    if (representativeItem.dtVencObj && saldoEmb1Group > 0) {
+                        const diasAteVenc = Math.ceil((representativeItem.dtVencObj - hoje) / (1000 * 60 * 60 * 24));
+                        const vendaDiaria = representativeItem.vnd30Emb1 / 30;
+
+                        if (diasAteVenc <= 0) {
+                            statusGiro = "Preocupante (Vencido)";
                             badgeColor = "bg-rose-100 text-rose-800 border-rose-300";
+                        } else if (vendaDiaria <= 0) {
+                            statusGiro = "Preocupante (Sem Venda)";
+                            badgeColor = "bg-slate-200 text-slate-700 border-slate-300";
+                        } else {
+                            const projecao = vendaDiaria * diasAteVenc;
+                            if (projecao >= saldoEmb1Group) {
+                                statusGiro = "Normal";
+                                badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-300";
+                            } else if (projecao >= (saldoEmb1Group * 0.7)) {
+                                statusGiro = "Atenção";
+                                badgeColor = "bg-amber-100 text-amber-800 border-amber-300";
+                            } else {
+                                statusGiro = "Preocupante";
+                                badgeColor = "bg-rose-100 text-rose-800 border-rose-300";
+                            }
                         }
                     }
-                }
 
-                const totalValorVenc = itemsList.reduce((acc, curr) => acc + (curr.valorVencimento || 0), 0);
+                    const totalValorVenc = groupItems.reduce((acc, curr) => acc + (curr.valorVencimento || 0), 0);
+                    
+                    // Indicador da coluna V no formato 1d3, 2d3, 3d3, etc. (Oculta se for apenas 1 data, ex: 1d1)
+                    const indicatorV = totalDatasDistintas > 1 ? `${index + 1}d${totalDatasDistintas}` : '';
 
-                resultados.push({
-                    codigo: earliestItem.codigo,
-                    digito: earliestItem.digito,
-                    descricao: earliestItem.descricao,
-                    embalagem: earliestItem.embalagem,
-                    dtEntradaObj: earliestItem.dtEntradaObj,
-                    dtVencObj: earliestItem.dtVencObj,
-                    dataEntrada: earliestItem.dataEntrada,
-                    dataVencimento: earliestItem.dataVencimento,
-                    indicatorV: indicatorV,
-                    valorVencimento: totalValorVenc,
-                    tempoVida: earliestItem.tempoVida,
-                    qtdeEntradaEmb1: earliestItem.qtdeEntradaEmb1,
-                    estoqueRestanteEmb1: earliestItem.estoqueRestanteEmb1,
-                    estLiqAtual: earliestItem.estLiqAtual,
-                    vnd30Emb1: earliestItem.vnd30Emb1,
-                    diasSemVenda: earliestItem.diasSemVenda,
-                    lastro: earliestItem.lastro,
-                    qtdIdeal: earliestItem.qtdIdeal,
-                    statusGiro: statusGiro,
-                    badgeColor: badgeColor,
-                    erroLancamento: earliestItem.erroLancamento,
-                    motivoErro: earliestItem.motivoErro,
-                    ehEsteMes: earliestItem.ehEsteMes,
-                    ehMesVem: earliestItem.ehMesVem,
-                    temInd: earliestItem.temInd,
-                    indPertencente: earliestItem.indPertencente,
-                    skuFornecedor: earliestItem.skuFornecedor
+                    resultados.push({
+                        codigo: representativeItem.codigo,
+                        digito: representativeItem.digito,
+                        descricao: representativeItem.descricao,
+                        embalagem: representativeItem.embalagem,
+                        dtEntradaObj: representativeItem.dtEntradaObj,
+                        dtVencObj: representativeItem.dtVencObj,
+                        dataEntrada: representativeItem.dataEntrada,
+                        dataVencimento: representativeItem.dataVencimento,
+                        indicatorV: indicatorV,
+                        valorVencimento: totalValorVenc,
+                        tempoVida: representativeItem.tempoVida,
+                        qtdeEntradaEmb1: representativeItem.qtdeEntradaEmb1,
+                        estoqueRestanteEmb1: saldoEmb1Group,
+                        estLiqAtual: representativeItem.estLiqAtual,
+                        vnd30Emb1: representativeItem.vnd30Emb1,
+                        diasSemVenda: representativeItem.diasSemVenda,
+                        lastro: representativeItem.lastro,
+                        qtdIdeal: representativeItem.qtdIdeal,
+                        statusGiro: statusGiro,
+                        badgeColor: badgeColor,
+                        erroLancamento: representativeItem.erroLancamento,
+                        motivoErro: representativeItem.motivoErro,
+                        ehEsteMes: representativeItem.ehEsteMes,
+                        ehMesVem: representativeItem.ehMesVem,
+                        temInd: representativeItem.temInd,
+                        indPertencente: representativeItem.indPertencente,
+                        skuFornecedor: representativeItem.skuFornecedor
+                    });
                 });
             });
 
