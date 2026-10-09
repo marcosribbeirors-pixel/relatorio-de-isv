@@ -1,24 +1,26 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="h-full bg-slate-100">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestão e Análise de ISV e Vencimentos FIFO</title>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter e JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- SheetJS for Excel parsing -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -28,12 +30,17 @@
             darkMode: 'class',
             theme: {
                 extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
                     colors: {
                         brand: {
                             50: '#f0f9ff',
                             100: '#e0f2fe',
+                            200: '#bae6fd',
                             500: '#0284c7',
-                            600: '#0369a1',
+                            600: '#0284c7',
                             700: '#0369a1',
                             800: '#075985',
                             900: '#0c4a6e',
@@ -45,12 +52,8 @@
     </script>
 
     <style>
-        .scrollbar-none::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-none {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        body {
+            font-family: 'Inter', sans-serif;
         }
 
         /* Estilo da Barra de Rolagem Horizontal de Indústrias */
@@ -69,7 +72,7 @@
             background: #0369a1;
         }
 
-        /* Zebra Striping */
+        /* Zebra Striping para Tabelas */
         .table-zebra tbody tr:nth-child(even) {
             background-color: #f8fafc;
         }
@@ -80,7 +83,7 @@
             background-color: #f1f5f9;
         }
 
-        /* Print Rules */
+        /* Regras Específicas de Impressão */
         @media print {
             @page {
                 size: A4 landscape;
@@ -184,11 +187,10 @@
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen font-sans flex flex-col antialiased">
 
-    <!-- Main Navigation Header -->
     <header class="bg-slate-900 text-white shadow-md sticky top-0 z-40 no-print">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="bg-brand-500 p-2 rounded-lg text-white">
+                <div class="bg-brand-500 p-2 rounded-xl text-white shadow-sm">
                     <i class="fa-solid fa-boxes-stacked text-xl"></i>
                 </div>
                 <div>
@@ -202,7 +204,7 @@
                 </div>
             </div>
 
-            <!-- Tab Switching Buttons -->
+            <!-- Botões de Troca de Abas -->
             <div class="flex items-center gap-2">
                 <button id="navBtnSmg12" onclick="switchTab('smg12')" class="px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-brand-600 text-white shadow-sm">
                     <i class="fa-solid fa-chart-line"></i>
@@ -233,10 +235,9 @@
         </div>
     </header>
 
-    <!-- Main Content View Container -->
     <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6 no-print">
 
-        <!-- Global Industry Selector Bar -->
+        <!-- Barra de Seleção de Indústrias -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5">
                 <div class="flex items-center gap-2">
@@ -270,18 +271,17 @@
                 </div>
             </div>
 
-            <!-- Custom Scrollbar Container for Industries -->
+            <!-- Botões das Indústrias com Scroll Horizontal -->
             <div id="industriesBar" class="flex items-center gap-2.5 overflow-x-auto pb-2 custom-scrollbar">
-                <!-- Dynamically Rendered Industry Buttons -->
+                <!-- Renderizado Dinamicamente -->
             </div>
         </section>
 
-        <!-- VIEW 1: RELATÓRIO BÍBLIA (SMG12) -->
         <div id="viewSmg12" class="space-y-6">
             
-            <!-- Upload Cards Grid -->
+            <!-- Cards de Upload -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- SMG12 Upload -->
+                <!-- Upload SMG12 -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between">
                     <div>
                         <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
@@ -302,7 +302,7 @@
                     </div>
                 </div>
 
-                <!-- SAE60 Direct Upload Link -->
+                <!-- Link Direto Upload SAE60 -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between">
                     <div>
                         <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
@@ -325,7 +325,7 @@
                 </div>
             </div>
 
-            <!-- Metrics KPI Cards -->
+            <!-- KPIs Métrica SMG12 -->
             <section id="metricsSection" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                     <div class="flex items-center justify-between text-slate-500 mb-1">
@@ -364,7 +364,7 @@
                 </div>
             </section>
 
-            <!-- Table Section for SMG12 -->
+            <!-- Tabela de Dados SMG12 -->
             <section class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
                 <div class="p-4 bg-slate-50/50 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
                     <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -373,13 +373,12 @@
                             <input type="text" id="tableSearch" oninput="applyFiltersAndRender()" placeholder="Buscar por código ou descrição..." class="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
                         </div>
 
-                        <!-- Ruptura Operacional Toggle -->
+                        <!-- Modos de Filtro -->
                         <button id="btnToggleRuptura" onclick="toggleRupturaMode()" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5 shadow-sm">
                             <i class="fa-solid fa-triangle-exclamation text-slate-400" id="iconRuptura"></i>
                             <span id="lblRuptura">Ruptura Operacional</span>
                         </button>
 
-                        <!-- ISV Filter -->
                         <div id="containerIsvMin" class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-sm transition">
                             <label for="isvMinFilter" id="lblIsvMin" class="text-xs font-semibold text-slate-700 whitespace-nowrap flex items-center gap-1">
                                 <i class="fa-solid fa-filter text-rose-500"></i> ISV Mínimo:
@@ -443,10 +442,9 @@
             </section>
         </div>
 
-        <!-- VIEW 2: RELATÓRIO SAE60 (VENCIMENTOS FIFO) -->
         <div id="viewSae60" class="space-y-6 hidden">
             
-            <!-- Upload Area for SAE60 -->
+            <!-- Card de Upload SAE60 -->
             <section class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
                 <div>
                     <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -465,7 +463,7 @@
                 </div>
             </section>
 
-            <!-- Cards de Resumo KPI Vencimentos -->
+            <!-- Cards Resumo Vencimentos -->
             <section id="kpiSectionSae" class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                     <p class="text-xs text-slate-500 font-medium uppercase">Total de SKUs Analisados</p>
@@ -485,7 +483,7 @@
                 </div>
             </section>
 
-            <!-- Actions Section for SAE60 -->
+            <!-- Barra de Ações e Exportação Vencimentos -->
             <section id="actionSectionSae" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-3 items-center justify-between">
                 <div>
                     <h3 class="font-bold text-xs text-slate-800 uppercase tracking-wider">Exportar e Imprimir Vencimentos Tratados</h3>
@@ -519,7 +517,7 @@
                 </div>
             </section>
 
-            <!-- Table Section for SAE60 -->
+            <!-- Tabela SAE60 -->
             <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div class="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap gap-2 items-center justify-between">
                     <div class="flex flex-wrap gap-2 items-center" id="tabButtonsSae">
@@ -628,7 +626,7 @@
         </div>
     </div>
 
-    <!-- Modal: Supabase Settings -->
+    <!-- Modal: Conexão Supabase -->
     <div id="modalSupabase" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
         <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden border border-slate-200 transform transition-all">
             <div class="bg-slate-900 px-6 py-4 flex items-center justify-between text-white">
@@ -673,7 +671,7 @@
         </div>
     </div>
 
-    <!-- Modal: Industry Management -->
+    <!-- Modal: Cadastro de Indústria (com campo de SKUs diretos) -->
     <div id="modalIndustria" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
         <div class="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-slate-200 transform transition-all">
             <div class="bg-slate-900 px-6 py-4 flex items-center justify-between text-white">
@@ -708,6 +706,15 @@
                 </div>
 
                 <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Códigos de SKU (separados por vírgula)</label>
+                    <textarea id="indSkus" rows="2" placeholder="Ex: 72613, 73256, 86733" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 font-mono"></textarea>
+                    <p class="text-[10px] text-slate-500 mt-1 bg-slate-50 p-1.5 rounded border border-slate-200">
+                        <i class="fa-solid fa-barcode text-brand-600 mr-1"></i>
+                        <strong>Atribuição Direta:</strong> Produtos com esses códigos de SKU serão vinculados diretamente a esta indústria.
+                    </p>
+                </div>
+
+                <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1">Tag / Categoria (opcional)</label>
                     <input type="text" id="indTag" placeholder="Ex: Bebidas, Frios, Matriz" class="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500">
                 </div>
@@ -725,7 +732,7 @@
         </div>
     </div>
 
-    <!-- Modal: Bulk Industry Registration from Excel -->
+    <!-- Modal: Cadastro em Lote -->
     <div id="modalIndustriaLote" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
         <div class="bg-white rounded-2xl shadow-xl max-w-xl w-full overflow-hidden border border-slate-200 transform transition-all">
             <div class="bg-slate-900 px-6 py-4 flex items-center justify-between text-white">
@@ -766,7 +773,7 @@
         </div>
     </div>
 
-    <!-- Print Area -->
+    <!-- Área de Impressão Oculta -->
     <div id="printArea" class="print-only"></div>
 
     <script>
@@ -794,11 +801,13 @@
             "Coca-Cola": {
                 cnpjs: ["0074569000100", "45913696000185", "61186888000193", "01612795000151"],
                 keywords: ["coca"],
+                skus: ["72613", "73256"],
                 tag: "Bebidas"
             },
             "Heineken": {
                 cnpjs: ["50221019000136"],
                 keywords: [],
+                skus: [],
                 tag: "Cervejas"
             }
         };
@@ -883,9 +892,10 @@
             const saeCountsPerInd = {};
             if (globalResultadoProcessadoSae && globalResultadoProcessadoSae.length > 0) {
                 Object.keys(industrias).forEach(indName => {
-                    const indConfig = industrias[indName] || { cnpjs: [], keywords: [] };
+                    const indConfig = industrias[indName] || { cnpjs: [], keywords: [], skus: [] };
                     const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
                     const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+                    const skus = (indConfig.skus || []).map(s => String(s).trim()).filter(Boolean);
 
                     let countEsteMes = 0;
                     let countMesVem = 0;
@@ -893,7 +903,10 @@
 
                     globalResultadoProcessadoSae.forEach(r => {
                         let matchesInd = false;
-                        if (r.skuFornecedor) {
+                        if (skus.length > 0 && r.codigo && skus.includes(String(r.codigo).trim())) {
+                            matchesInd = true;
+                        }
+                        if (!matchesInd && r.skuFornecedor) {
                             const fornecedorStr = String(r.skuFornecedor).replace(/\D/g, '');
                             if (cleanCnpjs.length > 0 && fornecedorStr.length > 0) {
                                 matchesInd = cleanCnpjs.some(cnpj => fornecedorStr.includes(cnpj) || cnpj.includes(fornecedorStr));
@@ -933,7 +946,7 @@
             const onlyVencendo = document.getElementById('chkOnlyVencendo')?.checked || false;
             const saeCounts = getSaeCountsPerInd();
 
-            // All Industries Button
+            // Botão Todas as Indústrias
             const isTodasActive = currentIndustria === 'TODAS';
             const btnTodas = document.createElement('button');
             btnTodas.className = `px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-sm ${
@@ -1379,8 +1392,14 @@
                         const ind = industrias[indName];
                         const cleanCnpjs = (ind.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
                         const keywords = (ind.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+                        const skus = (ind.skus || []).map(s => String(s).trim()).filter(Boolean);
 
-                        if (skuFornecedor) {
+                        if (skus.length > 0 && skus.includes(String(sku).trim())) {
+                            temInd = true;
+                            indPertencente = indName;
+                        }
+
+                        if (!temInd && skuFornecedor) {
                             const fornClean = skuFornecedor.replace(/\D/g, '');
                             if (cleanCnpjs.some(c => fornClean.includes(c) || c.includes(fornClean))) {
                                 temInd = true;
@@ -1454,7 +1473,6 @@
             mapGruposCat.forEach((itemsList) => {
                 if (!itemsList || itemsList.length === 0) return;
 
-                // Agrupar os itens da categoria por Data de Vencimento única
                 const mapByVencDate = new Map();
                 itemsList.forEach(item => {
                     const dateKey = item.dtVencObj ? item.dtVencObj.getTime() : 0;
@@ -1464,10 +1482,8 @@
                     mapByVencDate.get(dateKey).push(item);
                 });
 
-                // Ordenar as datas de vencimento da mais próxima para a mais distante
                 const sortedDateKeys = Array.from(mapByVencDate.keys()).sort((a, b) => a - b);
 
-                // Filtrar apenas datas que possuem saldo de caixas > 0 ou erro de lançamento
                 const validDateKeys = sortedDateKeys.filter(dateKey => {
                     const groupItems = mapByVencDate.get(dateKey);
                     const saldoEmb1Group = groupItems.reduce((acc, curr) => acc + (curr.estoqueRestanteEmb1 || 0), 0);
@@ -1476,14 +1492,10 @@
 
                 const totalDatasDistintas = validDateKeys.length;
 
-                // Criar uma LINHA SEPARADA para CADA DATA DE VENCIMENTO ÚNICA
                 validDateKeys.forEach((dateKey, index) => {
                     const groupItems = mapByVencDate.get(dateKey);
-
-                    // Somar o saldo em caixas de todas as entradas com essa MESMA data de vencimento
                     const saldoEmb1Group = groupItems.reduce((acc, curr) => acc + (curr.estoqueRestanteEmb1 || 0), 0);
 
-                    // Item representativo para dados de exibição (priorizando a data de entrada mais recente)
                     groupItems.sort((a, b) => (b.dtEntradaObj || 0) - (a.dtEntradaObj || 0));
                     const representativeItem = groupItems[0];
 
@@ -1516,8 +1528,6 @@
                     }
 
                     const totalValorVenc = groupItems.reduce((acc, curr) => acc + (curr.valorVencimento || 0), 0);
-                    
-                    // Indicador da coluna V no formato 1d3, 2d3, 3d3, etc. (Oculta se for apenas 1 data, ex: 1d1)
                     const indicatorV = totalDatasDistintas > 1 ? `${index + 1}d${totalDatasDistintas}` : '';
 
                     resultados.push({
@@ -1607,7 +1617,6 @@
                 dados = dados.filter(r => !r.temInd);
             }
 
-            // Filtro por Código / Descrição
             const cdSearchVal = normalizeStr(document.getElementById('txtSaeCodigo')?.value || '');
             if (cdSearchVal) {
                 dados = dados.filter(r => 
@@ -1616,7 +1625,6 @@
                 );
             }
 
-            // Filtro por Intervalo de Datas de Vencimento
             const dtInicioVal = document.getElementById('dtSaeInicio')?.value;
             const dtFimVal = document.getElementById('dtSaeFim')?.value;
 
@@ -1630,11 +1638,13 @@
             }
 
             if (currentIndustria !== 'TODAS') {
-                const indConfig = industrias[currentIndustria] || { cnpjs: [], keywords: [] };
+                const indConfig = industrias[currentIndustria] || { cnpjs: [], keywords: [], skus: [] };
                 const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
                 const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+                const skus = (indConfig.skus || []).map(s => String(s).trim()).filter(Boolean);
 
                 dados = dados.filter(r => {
+                    if (skus.length > 0 && skus.includes(String(r.codigo).trim())) return true;
                     if (r.skuFornecedor) {
                         const fornClean = r.skuFornecedor.replace(/\D/g, '');
                         if (cleanCnpjs.some(c => fornClean.includes(c) || c.includes(fornClean))) return true;
@@ -1647,7 +1657,6 @@
                 });
             }
 
-            // Hierarquização (Ordenação): por Data (Mais cedo -> Mais tarde) ou por Valor de Vencimento (Maior -> Menor)
             const chkHierarquizar = document.getElementById('chkHierarquizarData')?.checked || false;
             if (chkHierarquizar) {
                 dados.sort((a, b) => (a.dtVencObj || 0) - (b.dtVencObj || 0));
@@ -1830,30 +1839,34 @@
 
             const searchQuery = normalizeStr(document.getElementById('tableSearch')?.value || '');
             const minIsvVal = parseFloat(document.getElementById('isvMinFilter')?.value) || 0;
-            const indConfig = industrias[currentIndustria] || { cnpjs: [], keywords: [] };
+            const indConfig = industrias[currentIndustria] || { cnpjs: [], keywords: [], skus: [] };
 
             const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
             const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+            const skus = (indConfig.skus || []).map(s => String(s).trim()).filter(Boolean);
 
             const today = new Date();
             const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 
             let filtered = rawDatasetSmg12.filter(item => {
                 if (currentIndustria !== 'TODAS') {
+                    const itemSku = String(item['código'] || '').trim();
+                    let matchSKU = skus.length > 0 && skus.includes(itemSku);
+
                     const fornecedorStr = String(item['FORNECEDOR'] || '').replace(/\D/g, '');
                     let matchCNPJ = false;
-                    if (cleanCnpjs.length > 0 && fornecedorStr.length > 0) {
+                    if (!matchSKU && cleanCnpjs.length > 0 && fornecedorStr.length > 0) {
                         matchCNPJ = cleanCnpjs.some(cnpj => fornecedorStr.includes(cnpj) || cnpj.includes(fornecedorStr));
                     }
 
                     let matchKeyword = false;
                     const isFornEmpty = !fornecedorStr || fornecedorStr === '0';
-                    if (isFornEmpty && keywords.length > 0) {
+                    if (!matchSKU && !matchCNPJ && isFornEmpty && keywords.length > 0) {
                         const desc = String(item['DESCRICAO'] || '').toLowerCase();
                         matchKeyword = keywords.some(kw => desc.includes(kw));
                     }
 
-                    if (!matchCNPJ && !matchKeyword) return false;
+                    if (!matchSKU && !matchCNPJ && !matchKeyword) return false;
                 }
 
                 if (isRupturaActive) {
@@ -2204,15 +2217,17 @@
 
                 const count = saeCounts[indName]?.[abaAtualSae] || 0;
                 if (count > 0) {
-                    const indConfig = industrias[indName] || { cnpjs: [], keywords: [] };
+                    const indConfig = industrias[indName] || { cnpjs: [], keywords: [], skus: [] };
                     const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
                     const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+                    const skus = (indConfig.skus || []).map(s => String(s).trim()).filter(Boolean);
 
                     let indData = globalResultadoProcessadoSae.filter(r => {
                         if (abaAtualSae === 'este_mes' && (!r.ehEsteMes || r.estoqueRestanteEmb1 <= 0)) return false;
                         if (abaAtualSae === 'mes_vem' && (!r.ehMesVem || r.estoqueRestanteEmb1 <= 0)) return false;
                         if (abaAtualSae === 'erros' && r.erroLancamento !== "SIM") return false;
 
+                        if (skus.length > 0 && skus.includes(String(r.codigo).trim())) return true;
                         if (r.skuFornecedor) {
                             const fornClean = r.skuFornecedor.replace(/\D/g, '');
                             if (cleanCnpjs.some(c => fornClean.includes(c) || c.includes(fornClean))) return true;
@@ -2315,25 +2330,29 @@
             const selectedList = Array.from(selectedIndustriasForPrint);
 
             selectedList.forEach(indName => {
-                const indConfig = industrias[indName] || { cnpjs: [], keywords: [] };
+                const indConfig = industrias[indName] || { cnpjs: [], keywords: [], skus: [] };
                 const cleanCnpjs = (indConfig.cnpjs || []).map(c => c.replace(/\D/g, '')).filter(Boolean);
                 const keywords = (indConfig.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+                const skus = (indConfig.skus || []).map(s => String(s).trim()).filter(Boolean);
 
                 let filtered = rawDatasetSmg12.filter(item => {
+                    const itemSku = String(item['código'] || '').trim();
+                    let matchSKU = skus.length > 0 && skus.includes(itemSku);
+
                     const fornecedorStr = String(item['FORNECEDOR'] || '').replace(/\D/g, '');
                     let matchCNPJ = false;
-                    if (cleanCnpjs.length > 0 && fornecedorStr.length > 0) {
+                    if (!matchSKU && cleanCnpjs.length > 0 && fornecedorStr.length > 0) {
                         matchCNPJ = cleanCnpjs.some(cnpj => fornecedorStr.includes(cnpj) || cnpj.includes(fornecedorStr));
                     }
 
                     let matchKeyword = false;
                     const isFornEmpty = !fornecedorStr || fornecedorStr === '0';
-                    if (isFornEmpty && keywords.length > 0) {
+                    if (!matchSKU && !matchCNPJ && isFornEmpty && keywords.length > 0) {
                         const desc = String(item['DESCRICAO'] || '').toLowerCase();
                         matchKeyword = keywords.some(kw => desc.includes(kw));
                     }
 
-                    if (!matchCNPJ && !matchKeyword) return false;
+                    if (!matchSKU && !matchCNPJ && !matchKeyword) return false;
 
                     if (isRupturaActive) {
                         const entDate = parseDate(item['DT ULT ENT']);
@@ -2497,6 +2516,7 @@
                             cloudInds[item.nome] = {
                                 cnpjs: Array.isArray(item.cnpjs) ? item.cnpjs : (item.cnpjs ? item.cnpjs.split(',') : []),
                                 keywords: Array.isArray(item.keywords) ? item.keywords : (item.keywords ? item.keywords.split(',') : []),
+                                skus: Array.isArray(item.skus) ? item.skus : (item.skus ? item.skus.split(',') : []),
                                 tag: item.tag || ''
                             };
                         });
@@ -2529,6 +2549,7 @@
                 document.getElementById('indNome').value = name;
                 document.getElementById('indCnpjs').value = (industrias[name].cnpjs || []).join(', ');
                 document.getElementById('indKeywords').value = (industrias[name].keywords || []).join(', ');
+                document.getElementById('indSkus').value = (industrias[name].skus || []).join(', ');
                 document.getElementById('indTag').value = industrias[name].tag || '';
                 btnDel.classList.remove('hidden');
             } else {
@@ -2537,6 +2558,7 @@
                 document.getElementById('indNome').value = '';
                 document.getElementById('indCnpjs').value = '';
                 document.getElementById('indKeywords').value = '';
+                document.getElementById('indSkus').value = '';
                 document.getElementById('indTag').value = '';
                 btnDel.classList.add('hidden');
             }
@@ -2551,6 +2573,7 @@
             const nome = document.getElementById('indNome').value.trim();
             const cnpjs = document.getElementById('indCnpjs').value.split(',').map(s => s.trim()).filter(Boolean);
             const keywords = document.getElementById('indKeywords').value.split(',').map(s => s.trim()).filter(Boolean);
+            const skus = document.getElementById('indSkus').value.split(',').map(s => s.trim()).filter(Boolean);
             const tag = document.getElementById('indTag').value.trim();
 
             if (!nome) return;
@@ -2560,7 +2583,7 @@
                 selectedIndustriasForPrint.delete(oldName);
             }
 
-            industrias[nome] = { cnpjs, keywords, tag };
+            industrias[nome] = { cnpjs, keywords, skus, tag };
             selectedIndustriasForPrint.add(nome);
             localStorage.setItem('local_industrias_cache', JSON.stringify(industrias));
 
@@ -2573,6 +2596,7 @@
                         nome: nome,
                         cnpjs: cnpjs,
                         keywords: keywords,
+                        skus: skus,
                         tag: tag
                     }, { onConflict: 'nome' });
                 } catch (err) {}
@@ -2619,7 +2643,7 @@
                     const tag = cols[2] || '';
 
                     if (!industrias[nome]) {
-                        industrias[nome] = { cnpjs: [], keywords: [], tag: tag };
+                        industrias[nome] = { cnpjs: [], keywords: [], skus: [], tag: tag };
                     }
 
                     if (cnpj && !industrias[nome].cnpjs.includes(cnpj)) {
