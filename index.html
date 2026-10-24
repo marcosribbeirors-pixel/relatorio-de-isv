@@ -395,6 +395,9 @@
                         <button onclick="exportarCSVSmg12()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm" title="Baixar dados filtrados em CSV">
                             <i class="fa-solid fa-file-csv"></i> <span>Baixar CSV</span>
                         </button>
+                        <button onclick="imprimirTabelaSmg12()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm" title="Imprimir exatamente os dados exibidos na tela do jeito que estão">
+                            <i class="fa-solid fa-print"></i> <span>Imprimir Tabela</span>
+                        </button>
                         <button onclick="imprimirSelecionadas()" id="btnPrintSelection" disabled class="disabled:opacity-50 disabled:cursor-not-allowed bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-sm">
                             <i class="fa-solid fa-print"></i> <span id="lblPrintBtn">Imprimir Selecionadas</span>
                         </button>
@@ -409,21 +412,20 @@
                                 <th class="py-3 px-3">Dígito</th>
                                 <th class="py-3 px-3 min-w-[180px]">Descrição</th>
                                 <th class="py-3 px-3">Emb</th>
-                                <th class="py-3 px-3 text-center">Lastro</th>
                                 <th class="py-3 px-3 text-center">Dt Ult Ent</th>
-                                <th class="py-3 px-3 text-center">Dt Ult Vnd</th>
                                 <th class="py-3 px-3 text-right">Qtd Ult Ent</th>
                                 <th class="py-3 px-3 text-right bg-amber-100/80 text-amber-900 border-x border-amber-200">Ped. Pendente</th>
                                 <th class="py-3 px-3 text-right">Estoque Cx</th>
                                 <th class="py-3 px-3 text-right">Estoque Und</th>
                                 <th class="py-3 px-3 text-right">Vnd 30dias Cx</th>
+                                <th class="py-3 px-3 text-center">Dt Ult Vnd</th>
                                 <th class="py-3 px-3 text-right">Bloq Cx</th>
                                 <th class="py-3 px-3 text-right bg-rose-100 text-rose-900 font-bold border-l border-rose-200" id="thMetricHeader">ISV</th>
                             </tr>
                         </thead>
                         <tbody id="tableBodySmg12" class="divide-y divide-slate-200/60 text-slate-700">
                             <tr>
-                                <td colspan="14" class="py-12 text-center text-slate-400">
+                                <td colspan="13" class="py-12 text-center text-slate-400">
                                     <div class="flex flex-col items-center justify-center gap-2">
                                         <i class="fa-regular fa-folder-open text-3xl text-slate-300"></i>
                                         <p class="text-sm font-medium">Nenhum arquivo smg12 carregado.</p>
@@ -1920,7 +1922,7 @@
             if (countTxt) countTxt.textContent = `Exibindo ${data.length} registros para ${currentIndustria}`;
 
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="14" class="py-12 text-center text-slate-400">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="13" class="py-12 text-center text-slate-400">Nenhum registro encontrado para os filtros selecionados.</td></tr>`;
                 return;
             }
 
@@ -1935,14 +1937,13 @@
                     <td class="py-2 px-3">${item['DIGITO']}</td>
                     <td class="py-2 px-3 font-medium text-slate-800">${item['DESCRICAO']}</td>
                     <td class="py-2 px-3">${item['emb']}</td>
-                    <td class="py-2 px-3 text-center">${item['LASTRO']}</td>
                     <td class="py-2 px-3 text-center font-medium">${item['DT ULT ENT']}</td>
-                    <td class="py-2 px-3 text-center font-medium text-slate-500">${item['DT ULT VND']}</td>
                     <td class="py-2 px-3 text-right">${fmtNum(item['QTD ULT ENT'])}</td>
                     <td class="py-2 px-3 text-right font-bold bg-amber-50 text-amber-900 border-x border-amber-200/50">${fmtNum(item['ped. pendente'])}</td>
                     <td class="py-2 px-3 text-right">${fmtNum(item['estoque cx'])}</td>
                     <td class="py-2 px-3 text-right">${fmtNum(item['estoque und'])}</td>
                     <td class="py-2 px-3 text-right">${fmtNum(item['vnd 30dias cx'])}</td>
+                    <td class="py-2 px-3 text-center font-medium text-slate-500">${item['DT ULT VND']}</td>
                     <td class="py-2 px-3 text-right">${fmtNum(item['bloq cx'])}</td>
                     <td class="py-2 px-3 text-right font-bold text-rose-700 bg-rose-50 border-l border-rose-200/60">${fmtNum(metricVal)}</td>
                 `;
@@ -2011,6 +2012,20 @@
             link.href = URL.createObjectURL(blob);
             link.download = `Relatorio_smg12_${currentIndustria}.csv`;
             link.click();
+        }
+
+        function imprimirTabelaSmg12() {
+            if (!processedDatasetSmg12 || processedDatasetSmg12.length === 0) {
+                alert("Nenhum dado exibido na tabela para imprimir.");
+                return;
+            }
+
+            const printContainer = document.getElementById('printArea');
+            const indTitle = currentIndustria === 'TODAS' ? 'VISUALIZAÇÃO ATUAL DA TELA' : currentIndustria;
+            const fullHtml = generatePrintHTMLForSmg12Industry(indTitle, processedDatasetSmg12);
+
+            printContainer.innerHTML = fullHtml;
+            window.print();
         }
 
         function exportarExcelSae() {
@@ -2420,14 +2435,13 @@
                         <td style="text-align:center;">${item['DIGITO']}</td>
                         <td>${item['DESCRICAO']}</td>
                         <td>${item['emb']}</td>
-                        <td style="text-align:center;">${item['LASTRO']}</td>
                         <td style="text-align:center;">${item['DT ULT ENT']}</td>
-                        <td style="text-align:center;">${item['DT ULT VND']}</td>
                         <td style="text-align:right;">${(item['QTD ULT ENT'] || 0).toLocaleString('pt-BR')}</td>
                         <td style="text-align:right;" class="print-highlight-amber">${(item['ped. pendente'] || 0).toLocaleString('pt-BR')}</td>
                         <td style="text-align:right;">${(item['estoque cx'] || 0).toLocaleString('pt-BR')}</td>
                         <td style="text-align:right;">${(item['estoque und'] || 0).toLocaleString('pt-BR')}</td>
                         <td style="text-align:right;">${(item['vnd 30dias cx'] || 0).toLocaleString('pt-BR')}</td>
+                        <td style="text-align:center;">${item['DT ULT VND']}</td>
                         <td style="text-align:right;">${(item['bloq cx'] || 0).toLocaleString('pt-BR')}</td>
                         <td style="text-align:right;" class="print-highlight-rose">${(metricVal || 0).toLocaleString('pt-BR')}</td>
                     </tr>
@@ -2439,7 +2453,7 @@
                     <table class="print-table">
                         <thead>
                             <tr class="print-header-row">
-                                <th colspan="14" class="print-header-cell">
+                                <th colspan="13" class="print-header-cell">
                                     <div class="print-header-content">
                                         <div class="print-title">RELATÓRIO DE ${titleMode} - ${indName.toUpperCase()}</div>
                                         <div class="print-meta-info">Emitido em: ${dateStr} | Total SKUs: ${data.length}</div>
@@ -2447,11 +2461,11 @@
                                 </th>
                             </tr>
                             <tr class="print-columns-row">
-                                <th>Código</th><th>Dígito</th><th>Descrição</th><th>Emb</th><th>Lastro</th>
-                                <th>Dt Ult Ent</th><th>Dt Ult Vnd</th><th style="text-align:right">Qtd Ult Ent</th>
+                                <th>Código</th><th>Dígito</th><th>Descrição</th><th>Emb</th>
+                                <th>Dt Ult Ent</th><th style="text-align:right">Qtd Ult Ent</th>
                                 <th style="text-align:right">Ped. Pendente</th><th style="text-align:right">Estoque Cx</th>
                                 <th style="text-align:right">Estoque Und</th><th style="text-align:right">Vnd 30d</th>
-                                <th style="text-align:right">Bloq Cx</th><th style="text-align:right">${metricHeader}</th>
+                                <th>Dt Ult Vnd</th><th style="text-align:right">Bloq Cx</th><th style="text-align:right">${metricHeader}</th>
                             </tr>
                         </thead>
                         <tbody>${rowsHtml}</tbody>
