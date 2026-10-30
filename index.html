@@ -449,10 +449,35 @@
             <!-- Card de Upload SAE60 -->
             <section class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
                 <div>
-                    <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                        <i class="fa-solid fa-calendar-xmark text-amber-500"></i>
-                        Analisador de Validade & Vencimentos FIFO (sae60)
-                    </h2>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-xmark text-amber-500"></i>
+                            Analisador de Validade & Vencimentos FIFO (sae60)
+                        </h2>
+                        <!-- Seletor do Mês de Referência em Lista Suspensa (Mês e Ano) -->
+                        <div class="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg text-xs font-semibold text-amber-900 shadow-sm">
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <i class="fa-solid fa-calendar-day text-amber-600"></i>
+                                <span>Mês Ref:</span>
+                            </label>
+                            <select id="selMesRef" onchange="reanalisarSaeComMesRef()" class="bg-white border border-amber-300 rounded px-1.5 py-0.5 text-xs text-amber-950 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer">
+                                <option value="01">01 - Janeiro</option>
+                                <option value="02">02 - Fevereiro</option>
+                                <option value="03">03 - Março</option>
+                                <option value="04">04 - Abril</option>
+                                <option value="05">05 - Maio</option>
+                                <option value="06">06 - Junho</option>
+                                <option value="07">07 - Julho</option>
+                                <option value="08">08 - Agosto</option>
+                                <option value="09">09 - Setembro</option>
+                                <option value="10">10 - Outubro</option>
+                                <option value="11">11 - Novembro</option>
+                                <option value="12">12 - Dezembro</option>
+                            </select>
+                            <select id="selAnoRef" onchange="reanalisarSaeComMesRef()" class="bg-white border border-amber-300 rounded px-1.5 py-0.5 text-xs text-amber-950 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer">
+                            </select>
+                        </div>
+                    </div>
                     <p class="text-xs text-slate-500 mt-0.5">Importe a planilha <code class="bg-slate-100 px-1 rounded text-slate-700">SAEOU060</code> para auditoria de lotes, datas e projeção de vendas.</p>
                 </div>
 
@@ -1309,6 +1334,38 @@
             executarAnaliseFIFOSae(dados);
         }
 
+        function initMesReferenciaDefault() {
+            const selMes = document.getElementById('selMesRef');
+            const selAno = document.getElementById('selAnoRef');
+            if (!selMes || !selAno) return;
+
+            const d = new Date();
+            const currYear = d.getFullYear();
+            const currMonth = String(d.getMonth() + 1).padStart(2, '0');
+
+            if (selAno.options.length === 0) {
+                const startYear = currYear - 3;
+                const endYear = currYear + 5;
+                for (let y = startYear; y <= endYear; y++) {
+                    const opt = document.createElement('option');
+                    opt.value = y;
+                    opt.textContent = y;
+                    selAno.appendChild(opt);
+                }
+                selAno.value = currYear;
+            }
+
+            if (!selMes.value || selMes.value === '') {
+                selMes.value = currMonth;
+            }
+        }
+
+        function reanalisarSaeComMesRef() {
+            if (globalSaeFilteredData && globalSaeFilteredData.length > 0) {
+                executarAnaliseFIFOSae(globalSaeFilteredData);
+            }
+        }
+
         function executarAnaliseFIFOSae(dataRaw) {
             gruposSKUGlobalSae = {};
 
@@ -1319,7 +1376,20 @@
                 gruposSKUGlobalSae[codigo].push(row);
             });
 
-            const hoje = new Date();
+            initMesReferenciaDefault();
+            const mesRef = parseInt(document.getElementById('selMesRef')?.value, 10);
+            const anoRef = parseInt(document.getElementById('selAnoRef')?.value, 10);
+            let realToday = new Date();
+            let hoje = new Date();
+
+            if (anoRef && mesRef) {
+                if (anoRef === realToday.getFullYear() && (mesRef - 1) === realToday.getMonth()) {
+                    hoje = realToday;
+                } else {
+                    hoje = new Date(anoRef, mesRef - 1, 1);
+                }
+            }
+
             const mesAtual = hoje.getMonth();
             const anoAtual = hoje.getFullYear();
 
@@ -2677,6 +2747,7 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
+            initMesReferenciaDefault();
             initSupabaseFromStorageOrDefault();
             await fetchIndustriasFromSupabaseOrLocal();
         });
